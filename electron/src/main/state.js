@@ -68,6 +68,7 @@ class AppState extends EventEmitter {
     this._abort = null;
     this._autoTimer = null;
     this._followTimer = null;
+    this._followGen = 0;
     this._lastFingerprint = [];
     this._lastFollowAt = 0;
     this._lastFollowLineCount = 0;
@@ -79,6 +80,11 @@ class AppState extends EventEmitter {
     });
     native.on('commit', (m) => this.onCommit(m.speaker, m.text));
     native.on('error', (m) => { this.errorText = m.message; this.changed(); });
+    native.on('exit', () => {
+      if (!this.isListening) return;
+      this.errorText = 'Transcription stopped unexpectedly. Start recording again (⌥M).';
+      this.stopListening();
+    });
   }
 
   // MARK: plumbing
@@ -275,16 +281,18 @@ class AppState extends EventEmitter {
     this.followMode = on;
     clearTimeout(this._followTimer);
     this._followTimer = null;
+    const loopGen = ++this._followGen;
     this.changed();
     if (!on) return;
     if (this.loggedIn === false) { this.followMode = false; this.errorText = 'Sign in with ChatGPT first.'; this.changed(); return; }
     this._lastFingerprint = [];
     this._lastFollowAt = 0;
     if (!this.isListening) this.startListening(); // Follow listens to the conversation too
+    // One loop per setFollow(true): a stale loop (toggled off and on mid-tick) ends instead of doubling up.
     const loop = async () => {
-      if (!this.followMode) return;
+      if (!this.followMode || loopGen !== this._followGen) return;
       await this.followTick();
-      if (this.followMode) this._followTimer = setTimeout(loop, 3000);
+      if (this.followMode && loopGen === this._followGen) this._followTimer = setTimeout(loop, 3000);
     };
     loop();
   }

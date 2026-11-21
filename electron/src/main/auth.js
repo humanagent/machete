@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { shell } = require('electron');
 const { supportDir } = require('./paths');
 const settings = require('./settings');
+const { fetchChecked } = require('./net');
 
 const AUTHORIZE_URL = 'https://auth.openai.com/api/accounts/authorize';
 const TOKEN_URL = 'https://auth.openai.com/api/accounts/oauth/token';
@@ -163,7 +164,7 @@ function tokensFrom(json, clientID, previous) {
 }
 
 async function postForm(items) {
-  const resp = await fetch(TOKEN_URL, {
+  const resp = await fetchChecked(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
     body: formEncode(items),

@@ -1,6 +1,7 @@
 'use strict';
 // Responses API client (streaming), ported from ResponsesClient in SIWC.swift.
 const auth = require('./auth');
+const { fetchChecked, networkError } = require('./net');
 const { SIWCError } = auth;
 
 const ENDPOINT = 'https://api.openai.com/v1/responses';
@@ -78,14 +79,14 @@ async function send({ token, model, instructions, text, image, effort, onText, s
   const body = { model, instructions, input: [{ role: 'user', content }], store: false, stream: true };
   if (effort) body.reasoning = { effort };
 
-  const resp = await fetch(ENDPOINT, {
+  const resp = await fetchChecked(ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify(body),
     signal,
   });
   if (resp.status !== 200) throw parseError((await resp.text()).slice(0, 8000), resp.status);
-  return readStream(resp.body, onText, resp.status);
+  try { return await readStream(resp.body, onText, resp.status); } catch (e) { throw networkError(e); }
 }
 
 async function ask({ model, instructions, text, imageDataURL, effort, onText, signal }) {
@@ -104,7 +105,7 @@ async function ask({ model, instructions, text, imageDataURL, effort, onText, si
 /** Models the user's plan can use (`visibility == "list"`). */
 async function listModels() {
   const token = await auth.accessToken();
-  const resp = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${token}` } });
+  const resp = await fetchChecked('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${token}` } });
   let json = {};
   try { json = await resp.json(); } catch { /* ignore */ }
   const arr = json.data || json.models || [];

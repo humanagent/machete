@@ -308,7 +308,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         Log.write("system audio stopped: \(error)")
-        Out.emit(["type": "error", "message": "System audio stopped: \(error.localizedDescription)"])
+        Log.write("system audio stopped: \(error.localizedDescription)")
     }
 }
 

@@ -19,7 +19,7 @@ const { AppState } = require('./state');
 const { Overlay, PAD } = require('./overlay');
 const { createTray } = require('./tray');
 const { registerHotKeys } = require('./hotkeys');
-const { showManageWindow, manageWindow, destroyManageWindow } = require('./manage');
+const { showManageWindow, manageWindow, destroyManageWindow, setQuitting } = require('./manage');
 const contextFiles = require('./context-files');
 
 const state = new AppState();
@@ -56,6 +56,7 @@ app.whenReady().then(() => {
   if (process.argv.includes('--debug-listen')) state.startListening();
 });
 
+app.on('before-quit', () => setQuitting());
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   native.stop();
@@ -114,7 +115,7 @@ ipcMain.handle('manage:choose', async () => {
   const r = await dialog.showOpenDialog(manageWindow(), {
     message: "Add files to this bot's context",
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Documents', extensions: contextFiles.EXTENSIONS }],
+    filters: [{ name: 'Documents', extensions: contextFiles.EXTENSIONS }, { name: 'All Files', extensions: ['*'] }],
   });
   return r.canceled ? [] : r.filePaths;
 });

@@ -35,6 +35,8 @@ class Overlay {
       skipTaskbar: true,
       alwaysOnTop: true,
       type: process.platform === 'darwin' ? 'panel' : undefined, // NSPanel, non-activating
+      acceptFirstMouse: true,      // clicks land even while another app is active
+      hiddenInMissionControl: true, // .stationary / .ignoresCycle
       minWidth: 480 + PAD * 2,
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'overlay.js'),

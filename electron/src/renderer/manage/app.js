@@ -6,7 +6,12 @@ const $ = (id) => document.getElementById(id);
 let profiles = [];
 let selectedProfileID = null;   // the bot in use
 let selection = null;           // the bot being edited
-const saveTimers = {};
+const saveTimers = new Map(); // `${id}:${field}` -> { timer, run }
+
+function flushSaves() {
+  for (const { timer, run } of saveTimers.values()) { clearTimeout(timer); run(); }
+  saveTimers.clear();
+}
 
 function render() {
   const list = $('list');
@@ -17,7 +22,7 @@ function render() {
     li.className = p.id === selection ? 'sel' : '';
     li.innerHTML = '<span class="n"></span>' + (p.id === selectedProfileID ? '<span class="check">✓</span>' : '');
     li.querySelector('.n').textContent = p.name === '' ? 'Untitled' : p.name;
-    li.onclick = () => { selection = p.id; render(); };
+    li.onclick = () => { flushSaves(); selection = p.id; render(); };
     list.appendChild(li);
   }
   $('remove').disabled = selection == null || profiles.length <= 1;
@@ -48,12 +53,16 @@ for (const k of ['name', 'instructions', 'context']) {
     if (!p) return;
     p[k] = $(k).value;
     if (k === 'name') render();
-    clearTimeout(saveTimers[k]);
-    saveTimers[k] = setTimeout(() => bots.update(id, { [k]: p[k] }), 250);
+    const key = `${id}:${k}`;
+    const prev = saveTimers.get(key);
+    if (prev) clearTimeout(prev.timer);
+    const run = () => bots.update(id, { [k]: p[k] });
+    saveTimers.set(key, { run, timer: setTimeout(() => { saveTimers.delete(key); run(); }, 250) });
   });
 }
 
-$('add').onclick = async () => { selection = await bots.add(); apply(await bots.get()); };
+window.addEventListener('beforeunload', flushSaves);
+$('add').onclick = async () => { flushSaves(); selection = await bots.add(); apply(await bots.get()); };
 $('remove').onclick = async () => {
   if (selection == null) return;
   await bots.remove(selection);

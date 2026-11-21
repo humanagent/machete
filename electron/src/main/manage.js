@@ -4,6 +4,7 @@ const path = require('path');
 const { BrowserWindow, app } = require('electron');
 
 let win = null;
+let quitting = false;
 
 function showManageWindow() {
   if (!win) {
@@ -22,7 +23,7 @@ function showManageWindow() {
     });
     win.loadFile(path.join(__dirname, '..', 'renderer', 'manage', 'index.html'));
     win.once('ready-to-show', () => { win.center(); win.show(); });
-    win.on('close', (e) => { e.preventDefault(); win.hide(); }); // isReleasedWhenClosed = false
+    win.on('close', (e) => { if (quitting) return; e.preventDefault(); win.hide(); }); // isReleasedWhenClosed = false
   } else {
     win.show();
   }
@@ -31,6 +32,7 @@ function showManageWindow() {
 }
 
 function manageWindow() { return win; }
+function setQuitting() { quitting = true; }
 function destroyManageWindow() { if (win) { win.removeAllListeners('close'); win.destroy(); win = null; } }
 
-module.exports = { showManageWindow, manageWindow, destroyManageWindow };
+module.exports = { showManageWindow, manageWindow, destroyManageWindow, setQuitting };

@@ -11,6 +11,8 @@ const PAD = 8;
 let s = null;                 // latest snapshot
 let bodyMounted = false;      // window keeps room for the body
 let bodyOpen = false;         // body drawn at full height (animated)
+let bodyWanted = false;       // last cardVisible acted on
+let lastQuestion = '';
 let bodyGen = 0;
 let lastExchangeCount = 0;
 let lastThinking = false;
@@ -82,8 +84,10 @@ function renderBar() {
 
   const input = $('input');
   input.placeholder = s.exchanges.length === 0 ? 'Ask a follow-up about the meeting…' : 'Ask follow-up…';
-  if (input.value !== s.question && document.activeElement !== input) input.value = s.question;
-  if (s.question === '' && input.value !== '' && pendingAskClear) { input.value = ''; pendingAskClear = false; }
+  // The field is bound to state.question: an ask (button, Enter or ⌥↩) clears it even while focused.
+  if (s.question === '' && lastQuestion !== '') input.value = '';
+  else if (input.value !== s.question && document.activeElement !== input) input.value = s.question;
+  lastQuestion = s.question;
 
   $('follow').classList.toggle('active', s.followMode);
   $('followIcon').className = s.followMode ? 'i-binoculars-fill' : 'i-binoculars';
@@ -193,7 +197,7 @@ function render() {
   if (bodyOpen && !gripDrag) $('bodywrap').style.height = `${bodyHeight()}px`;
   renderBar();
   renderCard();
-  if (s.cardVisible !== bodyMounted && (s.cardVisible || bodyOpen)) setBody(s.cardVisible);
+  if (s.cardVisible !== bodyWanted) { bodyWanted = s.cardVisible; setBody(bodyWanted); }
   sendLayout();
   if (s.focusInputTick !== lastFocusTick) {
     lastFocusTick = s.focusInputTick;
@@ -216,7 +220,6 @@ setInterval(() => { if (s?.isListening) $('rectime').textContent = clock(recorde
 
 // MARK: Actions
 
-let pendingAskClear = false;
 const input = $('input');
 input.addEventListener('input', () => api.setQuestion(input.value));
 input.addEventListener('keydown', (e) => {
@@ -224,7 +227,6 @@ input.addEventListener('keydown', (e) => {
     e.preventDefault();
     const q = input.value;
     input.value = '';
-    pendingAskClear = true;
     api.ask(q);
   }
 });

@@ -28,6 +28,7 @@ final class Transcriber {
         if #available(macOS 26.0, *) {
             let them = AnalyzerStream(locale: locale, name: "Them")
             them.onCommit = { [weak self] t in self?.onCommit?(.them, t) }
+            them.onPartial = { [weak self] t in self?.onPartial?(.them, t) }
             try await them.start()
             them26 = them
             system.sink = { [weak them] buf in them?.append(buf) }
@@ -38,6 +39,7 @@ final class Transcriber {
             if micAllowed {
                 let me = AnalyzerStream(locale: locale, name: "Me")
                 me.onCommit = { [weak self] t in self?.onCommit?(.me, t) }
+                me.onPartial = { [weak self] t in self?.onPartial?(.me, t) }
                 try await me.start()
                 me26 = me
                 do { try mic.start { [weak me] buf in me?.append(buf) }; Log.write("listen: mic started") } catch {

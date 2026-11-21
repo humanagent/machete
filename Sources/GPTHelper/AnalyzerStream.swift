@@ -3,10 +3,11 @@ import Foundation
 import Speech
 
 /// Continuous on-device transcription with macOS 26 SpeechAnalyzer + SpeechTranscriber.
-/// Only finalized text is reported (no live/volatile words).
+/// Live (volatile) words go to onPartial; finalized segments go to onCommit.
 @available(macOS 26.0, *)
 final class AnalyzerStream: @unchecked Sendable {
     var onCommit: (@MainActor (String) -> Void)?
+    var onPartial: (@MainActor (String) -> Void)?
 
     private let locale: Locale
     private let name: String
@@ -18,6 +19,7 @@ final class AnalyzerStream: @unchecked Sendable {
     private var resultsTask: Task<Void, Never>?
     private var converter: AVAudioConverter? // used only from the audio thread
     private var frames = 0, lastLogged = 0
+    private var windowPeak: Float = 0
 
     private func peak(_ b: AVAudioPCMBuffer) -> Float {
         guard let ch = b.floatChannelData?[0] else { return -1 }
@@ -35,7 +37,7 @@ final class AnalyzerStream: @unchecked Sendable {
         guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
             throw CodexError(message: "Transcription isn't available for \(locale.identifier) on this Mac.")
         }
-        let transcriber = SpeechTranscriber(locale: supported, transcriptionOptions: [], reportingOptions: [],
+        let transcriber = SpeechTranscriber(locale: supported, transcriptionOptions: [], reportingOptions: [.volatileResults],
                                             attributeOptions: [])
         if let req = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             Log.write("[\(name)] downloading speech model for \(supported.identifier)…")
@@ -56,6 +58,11 @@ final class AnalyzerStream: @unchecked Sendable {
             do {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !result.isFinal {
+                        if let cb = self?.onPartial { await cb(text) }
+                        continue
+                    }
+                    if let cb = self?.onPartial { await cb("") }
                     guard !text.isEmpty else { continue }
                     Log.write("[\(name)] final segment (\(text.split(separator: " ").count) words)")
                     if let cb = self?.onCommit { await cb(text) }
@@ -101,7 +108,14 @@ final class AnalyzerStream: @unchecked Sendable {
         lock.unlock()
         guard !isPaused, let b else { return }
         frames += Int(buf.frameLength)
-        if frames - lastLogged > 48_000 * 60 { lastLogged = frames; Log.write("[\(name)] audio in: \(frames / 48_000)s peak=\(String(format: "%.3f", peak(buf)))") }
+        // Loudest sample over each ~10 s window, so a silent source is obvious in the log.
+        windowPeak = max(windowPeak, peak(buf))
+        let rate = Int(buf.format.sampleRate)
+        if frames - lastLogged > rate * 10 {
+            lastLogged = frames
+            Log.write("[\(name)] audio in: \(frames / max(rate, 1))s peak10s=\(String(format: "%.3f", windowPeak))\(windowPeak < 0.001 ? " (SILENT)" : "")")
+            windowPeak = 0
+        }
 
         guard let fmt, buf.format != fmt else {
             b.yield(AnalyzerInput(buffer: buf))

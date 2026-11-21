@@ -189,7 +189,7 @@ struct OverlayView: View {
 
             IconButton(systemName: state.followMode ? "binoculars.fill" : "binoculars",
                        active: state.followMode, activeColor: Color(red: 0.6, green: 0.76, blue: 1),
-                       help: state.followMode ? "Follow is on (click to stop)" : "Follow: suggest ideas automatically",
+                       help: state.followMode ? "Follow is on (click to stop)" : "Follow: flag my mistakes automatically",
                        action: state.toggleFollow)
             botsMenu
             IconButton(systemName: state.visibleInCapture ? "eye" : "eye.slash",
@@ -370,14 +370,21 @@ struct OverlayView: View {
     private var transcript: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("TRANSCRIPT").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(.white.opacity(0.45))
-            if state.lines.isEmpty {
-                Text(state.isListening ? "Recording… the transcript appears when you stop." : "Nothing transcribed yet.")
+            if state.lines.isEmpty && state.partialMe.isEmpty && state.partialThem.isEmpty {
+                Text(state.isListening ? "Listening… words show up here as they're recognized." : "Nothing transcribed yet.")
                     .font(.system(size: 13)).foregroundStyle(.white.opacity(0.4))
             }
             ForEach(state.lines) { line in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(line.speaker.label).foregroundStyle(.white.opacity(0.45))
                     Text(line.text).foregroundStyle(.white.opacity(0.9))
+                }
+            }
+            // Words still being recognized (not final yet).
+            ForEach([(Speaker.them, state.partialThem), (Speaker.me, state.partialMe)].filter { !$0.1.isEmpty }, id: \.0.label) { p in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(p.0.label).foregroundStyle(.white.opacity(0.35))
+                    Text(p.1).foregroundStyle(.white.opacity(0.55)).italic()
                 }
             }
         }

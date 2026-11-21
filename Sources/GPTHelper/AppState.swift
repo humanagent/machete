@@ -291,10 +291,14 @@ final class AppState: ObservableObject {
     private var lastFollowLineCount = 0
 
     static let followInstruction = """
-    FOLLOW MODE: I'm not asking anything; you're watching my screen and conversation continuously.
-    Show what matters most right now as a diagram (NODE/EDGE) with FOCUS on the next thing to add or the weak spot, plus 1-2 HINT cards in plain words (what to do or say next, concretely).
-    Only react to the task in front of me (the interview, the problem on screen), not to unrelated windows.
-    Don't repeat what you already suggested earlier in this chat. If there's nothing new or useful to add, reply with exactly: NOTHING
+    FOLLOW MODE (error checker): I'm not asking anything; you're watching my screen and conversation continuously.
+    Your ONLY job is to catch MY mistakes: things "Me" said in the transcript, or what I wrote/drew on screen (code, design, math, answers).
+    A mistake is something factually wrong, a bug, a wrong complexity or number, a design flaw that breaks a requirement, or a misunderstanding of what "Them" asked.
+    Do NOT give ideas, next steps, tips, improvements, style nits or answers to questions I haven't attempted yet. Ignore what other people said except to judge whether I understood them.
+    If you find a real mistake: no diagram. Reply with 1-2 HINT lines, each: HINT: <what's wrong, max 5 words> | <the correct version, concretely>. Optionally one SAY: line with how to correct it out loud.
+    Only flag mistakes you are confident about. Don't repeat a correction you already made earlier in this chat.
+    If I made no new mistake, reply with exactly: NOTHING
+    This overrides the usual answer format: no NODE/EDGE/FOCUS/NEXT/SUGGEST in follow mode.
     """
 
     func toggleFollow() { setFollow(!followMode) }

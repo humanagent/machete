@@ -1,0 +1,40 @@
+{
+  "name": "machete",
+  "productName": "Machete",
+  "version": "0.2.0",
+  "description": "Translucent overlay that sees your screen, listens to the conversation and answers with your ChatGPT plan.",
+  "private": true,
+  "main": "src/main/main.js",
+  "scripts": {
+    "native": "bash scripts/build-native.sh",
+    "start": "npm run native && electron .",
+    "dev": "electron .",
+    "test": "node --test test/",
+    "pack": "npm run native && electron-builder --mac --dir",
+    "dist": "npm run native && electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "ar.com.machete",
+    "productName": "Machete",
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "extraResources": [{ "from": "native/bin", "to": "bin", "filter": ["machete-native"] }],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "identity": null,
+      "hardenedRuntime": false,
+      "entitlements": "../Resources/Machete.entitlements",
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "Machete transcribes your microphone so it can answer with conversation context.",
+        "NSSpeechRecognitionUsageDescription": "Machete transcribes audio on-device to build a live transcript.",
+        "NSScreenCaptureUsageDescription": "Machete reads your screen and system audio to answer questions about what you are looking at."
+      }
+    },
+    "directories": { "output": "dist" }
+  }
+}

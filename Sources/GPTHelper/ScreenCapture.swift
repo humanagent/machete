@@ -26,6 +26,30 @@ enum ScreenCapture {
         return url
     }
 
+    /// Tiny grayscale thumbnail (32x18) used to detect when the screen changes.
+    static func fingerprint() async throws -> [UInt8] {
+        let img = try await captureImage(maxLongSide: 320)
+        let w = 32, h = 18
+        var px = [UInt8](repeating: 0, count: w * h)
+        let ok = px.withUnsafeMutableBytes { buf -> Bool in
+            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+            else { return false }
+            ctx.interpolationQuality = .medium
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        return ok ? px : []
+    }
+
+    /// Mean absolute difference (0-255) between two fingerprints.
+    static func difference(_ a: [UInt8], _ b: [UInt8]) -> Double {
+        guard a.count == b.count, !a.isEmpty else { return 255 }
+        var sum = 0
+        for i in a.indices { sum += abs(Int(a[i]) - Int(b[i])) }
+        return Double(sum) / Double(a.count)
+    }
+
     static func captureImage(maxLongSide: Int) async throws -> CGImage {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
 

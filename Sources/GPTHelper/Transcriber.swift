@@ -13,17 +13,46 @@ final class Transcriber {
     private let locale: Locale
     private var me: SpeechStream?
     private var them: SpeechStream?
+    private var me26: AnyObject?
+    private var them26: AnyObject?
     private let mic = MicCapture()
     private let system = SystemAudioCapture()
 
     init(locale: Locale) { self.locale = locale }
 
     func start() async throws {
+        Log.write("listen: start locale=\(locale.identifier)")
+        let micAllowed = await AVCaptureDevice.requestAccess(for: .audio)
+        Log.write("listen: micAllowed=\(micAllowed)")
+
+        if #available(macOS 26.0, *) {
+            let them = AnalyzerStream(locale: locale, name: "Them")
+            them.onCommit = { [weak self] t in self?.onCommit?(.them, t) }
+            try await them.start()
+            them26 = them
+            system.sink = { [weak them] buf in them?.append(buf) }
+            do { try await system.start(); Log.write("listen: system audio started") } catch {
+                Log.write("listen: system audio FAILED \(error)")
+                onError?("System audio unavailable (grant Screen & System Audio Recording): \(error.localizedDescription)")
+            }
+            if micAllowed {
+                let me = AnalyzerStream(locale: locale, name: "Me")
+                me.onCommit = { [weak self] t in self?.onCommit?(.me, t) }
+                try await me.start()
+                me26 = me
+                do { try mic.start { [weak me] buf in me?.append(buf) }; Log.write("listen: mic started") } catch {
+                    Log.write("listen: mic FAILED \(error)")
+                    onError?("Microphone unavailable: \(error.localizedDescription)")
+                }
+            } else {
+                onError?("Microphone permission denied — only system audio will be transcribed.")
+            }
+            return
+        }
+
         guard await Self.requestSpeechAuth() else {
             throw CodexError(message: "Speech Recognition permission denied. Enable it in System Settings ▸ Privacy & Security.")
         }
-        let micAllowed = await AVCaptureDevice.requestAccess(for: .audio)
-
         let them = makeStream(.them)
         self.them = them
         them.start()
@@ -31,7 +60,6 @@ final class Transcriber {
         do { try await system.start() } catch {
             onError?("System audio unavailable (grant Screen Recording permission): \(error.localizedDescription)")
         }
-
         if micAllowed {
             let me = makeStream(.me)
             self.me = me
@@ -39,20 +67,35 @@ final class Transcriber {
             do { try mic.start { [weak me] buf in me?.append(buf) } } catch {
                 onError?("Microphone unavailable: \(error.localizedDescription)")
             }
-        } else {
-            onError?("Microphone permission denied — only system audio will be transcribed.")
         }
     }
 
-    func stop() {
+    func setPaused(_ paused: Bool) {
+        me?.setPaused(paused)
+        them?.setPaused(paused)
+        if #available(macOS 26.0, *) {
+            (me26 as? AnalyzerStream)?.setPaused(paused)
+            (them26 as? AnalyzerStream)?.setPaused(paused)
+        }
+    }
+
+    /// Stops capturing and waits for the final words to be transcribed.
+    func stop() async {
         mic.stop()
         system.stop()
         me?.stop(); them?.stop()
         me = nil; them = nil
+        if #available(macOS 26.0, *) {
+            let a = me26 as? AnalyzerStream, b = them26 as? AnalyzerStream
+            async let x: Void = a?.finish() ?? ()
+            async let y: Void = b?.finish() ?? ()
+            _ = await (x, y)
+        }
+        me26 = nil; them26 = nil
     }
 
     private func makeStream(_ speaker: Speaker) -> SpeechStream {
-        let s = SpeechStream(locale: locale)
+        let s = SpeechStream(locale: locale, name: speaker.label)
         s.onPartial = { [weak self] t in self?.onPartial?(speaker, t) }
         s.onCommit = { [weak self] t in self?.onCommit?(speaker, t) }
         return s
@@ -81,8 +124,12 @@ final class SpeechStream {
     private var silenceTimer: Timer?
     private var maxTimer: Timer?
 
-    init(locale: Locale) {
+    private let name: String
+
+    init(locale: Locale, name: String) {
+        self.name = name
         recognizer = SFSpeechRecognizer(locale: locale)
+        Log.write("[\(name)] recognizer=\(recognizer != nil) available=\(recognizer?.isAvailable ?? false) onDevice=\(recognizer?.supportsOnDeviceRecognition ?? false)")
     }
 
     func start() {
@@ -98,6 +145,11 @@ final class SpeechStream {
 
     nonisolated func append(_ buffer: AVAudioPCMBuffer) {
         requestBox.append(buffer)
+    }
+
+    func setPaused(_ p: Bool) {
+        requestBox.paused = p
+        if p { rotate() } // commit whatever was said before pausing
     }
 
     private func rotate() {
@@ -131,7 +183,9 @@ final class SpeechStream {
             let failed = error != nil
             DispatchQueue.main.async {
                 guard let self, gen == self.generation else { return }
+                if let error { Log.write("[\(self.name)] task error: \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)") }
                 if let text, !text.isEmpty {
+                    if self.lastPartial.isEmpty { Log.write("[\(self.name)] got speech (\(text.count) chars)") }
                     self.lastPartial = text
                     self.onPartial?(text)
                     self.armSilenceTimer()
@@ -167,6 +221,11 @@ final class SpeechStream {
 final class RequestBox: @unchecked Sendable {
     private let lock = NSLock()
     private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var _paused = false
+    var paused: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _paused }
+        set { lock.lock(); _paused = newValue; lock.unlock() }
+    }
 
     @discardableResult
     func swap(_ new: SFSpeechAudioBufferRecognitionRequest?) -> SFSpeechAudioBufferRecognitionRequest? {
@@ -176,8 +235,12 @@ final class RequestBox: @unchecked Sendable {
         return old
     }
 
+    private var count = 0
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.lock(); defer { lock.unlock() }
+        count += 1
+        if count == 1 || count % 500 == 0 { Log.write("audio buffers=\(count) fmt=\(buffer.format.sampleRate)Hz ch=\(buffer.format.channelCount) frames=\(buffer.frameLength) hasRequest=\(request != nil)") }
+        if _paused { return }
         request?.append(buffer)
     }
 }
@@ -187,6 +250,7 @@ final class RequestBox: @unchecked Sendable {
 final class MicCapture {
     private let engine = AVAudioEngine()
     private var running = false
+    var formatDescription: String { "\(engine.inputNode.outputFormat(forBus: 0))" }
 
     func start(_ sink: @escaping (AVAudioPCMBuffer) -> Void) throws {
         let input = engine.inputNode
@@ -241,6 +305,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
+        Log.write("system audio stopped: \(error)")
         NSLog("gpt-helper: system audio stopped: \(error.localizedDescription)")
     }
 }

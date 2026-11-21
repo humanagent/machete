@@ -7,7 +7,7 @@ final class OverlayPanel: NSPanel {
 
     init<V: View>(rootView: V) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 660, height: 60),
-                   styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
+                   styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView, .resizable],
                    backing: .buffered, defer: false)
         isFloatingPanel = true
         level = .statusBar
@@ -26,10 +26,28 @@ final class OverlayPanel: NSPanel {
         contentViewController = host
 
         NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: self, queue: .main) { [weak self] _ in
-            guard let self else { return }
+            guard let self, !self.inLiveResize else { return }
             self.anchorTop = self.frame.maxY
         }
+        // User drag-resizing: feed the new size back into the SwiftUI card.
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: self, queue: .main) { [weak self] _ in
+            guard let self, self.inLiveResize else { return }
+            self.onUserResize?(self.contentCardSize, false)
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.didEndLiveResizeNotification, object: self, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.anchorTop = self.frame.maxY
+            self.onUserResize?(self.contentCardSize, true)
+        }
     }
+
+    /// Called with the card size (window minus SwiftUI padding) while/after the user resizes. Bool = finished.
+    var onUserResize: ((CGSize, Bool) -> Void)?
+    /// Only resizable when the expanded card is showing (not the small pill).
+    var allowUserResize = true {
+        didSet { styleMask = allowUserResize ? styleMask.union(.resizable) : styleMask.subtracting(.resizable) }
+    }
+    private var contentCardSize: CGSize { CGSize(width: frame.width - 16, height: frame.height - 16) }
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -49,7 +67,7 @@ final class OverlayPanel: NSPanel {
     /// Keep the top edge pinned when SwiftUI content grows or shrinks.
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
         var f = frameRect
-        if frame.height > 0, frameRect.size != frame.size {
+        if frame.height > 0, frameRect.size != frame.size, !inLiveResize {
             f.origin.y = (anchorTop ?? frame.maxY) - frameRect.height
             f.origin.x = frame.midX - frameRect.width / 2
         }

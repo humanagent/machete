@@ -10,14 +10,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         panel = OverlayPanel(rootView: OverlayView(state: state))
+        panel.onUserResize = { [weak self] size, done in self?.state.setCardSize(size, persist: done) }
+        state.onCardShowingChanged = { [weak self] showing in self?.panel.allowUserResize = showing }
         state.togglePanel = { [weak self] in self?.togglePanel() }
         state.showPanel = { [weak self] in self?.showPanel() }
+        state.applyCaptureVisibility = { [weak self] visible in
+            self?.panel.sharingType = visible ? .readOnly : .none
+        }
+        state.applyCaptureVisibility?(state.visibleInCapture)
         state.cardOpen = true
         showPanel()
 
         setupStatusItem()
         setupHotKeys()
         state.checkLogin()
+        if CommandLine.arguments.contains("--debug-listen") { state.startListening() }
     }
 
     // MARK: Panel
@@ -26,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !panel.isVisible {
             panel.positionTopCenter()
             panel.orderFrontRegardless()
+            // Re-pin once SwiftUI has sized the content.
+            DispatchQueue.main.async { [weak self] in self?.panel.positionTopCenter() }
         }
     }
 
@@ -43,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hk.register(keyCode: UInt32(kVK_ANSI_Backslash), modifiers: UInt32(optionKey)) { [weak self] in
             self?.togglePanel()
         }
-        hk.register(keyCode: UInt32(kVK_ANSI_LeftBracket), modifiers: UInt32(cmdKey | shiftKey)) { [weak self] in
+        hk.register(keyCode: UInt32(kVK_ANSI_LeftBracket), modifiers: UInt32(cmdKey)) { [weak self] in
             self?.togglePanel()
         }
         hk.register(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(optionKey)) { [weak self] in
@@ -73,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func rebuildMenu() {
         let menu = NSMenu()
-        menu.addItem(item("Show / Hide  (⌘⇧[)", #selector(menuToggle)))
+        menu.addItem(item("Show / Hide  (⌘[)", #selector(menuToggle)))
         menu.addItem(item("Ask about screen  (⌥↩)", #selector(menuAsk)))
         menu.addItem(item(state.isListening ? "Stop listening  (⌥M)" : "Start listening  (⌥M)", #selector(menuListen)))
         menu.addItem(item("What should I say?  (⌥S)", #selector(menuWhatToSay)))

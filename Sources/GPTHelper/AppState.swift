@@ -17,7 +17,10 @@ struct Exchange: Identifiable {
     let ask: String          // label shown in the bubble
     let typed: String        // instruction sent to the model
     var isPreset = false
+    var isFollow = false
     var answer: String?
+    var suggestions: [String] = []
+    var done = false
 }
 
 enum Preset: String, CaseIterable {
@@ -53,6 +56,29 @@ final class AppState: ObservableObject {
     @Published var transcriptTick = 0
     @Published var focusInput = false
     @Published var cardOpen = false
+    /// User collapsed the card (← or recording mode). Cleared when a new answer starts.
+    @Published var collapsed = false
+    @Published var listenStart: Date?      // start of the current (unpaused) segment
+    @Published var isPaused = false
+    private var recordedBefore: TimeInterval = 0
+
+    func recordedSeconds(at now: Date) -> Int {
+        let current = (isPaused || listenStart == nil) ? 0 : now.timeIntervalSince(listenStart!)
+        return max(0, Int(recordedBefore + current))
+    }
+
+    func togglePause() {
+        guard isListening else { return }
+        if isPaused {
+            listenStart = Date()
+            isPaused = false
+        } else {
+            recordedBefore += Date().timeIntervalSince(listenStart ?? Date())
+            isPaused = true
+            autoAnswerTask?.cancel()
+        }
+        transcriber?.setPaused(isPaused)
+    }
     @Published var status = "Thinking…"
     @Published var loggedIn: Bool? = nil
     @Published var signingIn = false
@@ -64,6 +90,33 @@ final class AppState: ObservableObject {
     @Published var models: [(slug: String, name: String)] = [
         ("gpt-6.2-sol", "GPT-6.2-Sol"), ("gpt-6.1-terra", "GPT-6.1 Terra"), ("gpt-6-luna", "GPT-6-Luna"),
     ]
+
+    /// When true the overlay shows up in screenshots / screen sharing like any normal window.
+    @Published var visibleInCapture: Bool = UserDefaults.standard.bool(forKey: "visibleInCapture")
+    var applyCaptureVisibility: ((Bool) -> Void)?
+
+    func toggleCaptureVisibility() {
+        visibleInCapture.toggle()
+        UserDefaults.standard.set(visibleInCapture, forKey: "visibleInCapture")
+        applyCaptureVisibility?(visibleInCapture)
+    }
+
+    /// Expanded card size; the user can drag the window edges to change it (persisted).
+    @Published var cardWidth: CGFloat = CGFloat(UserDefaults.standard.object(forKey: "cardWidth") as? Double ?? 640)
+    @Published var cardHeight: CGFloat = CGFloat(UserDefaults.standard.object(forKey: "cardHeight") as? Double ?? 560)
+
+    func setCardSize(_ size: CGSize, persist: Bool) {
+        cardWidth = max(480, size.width)
+        cardHeight = max(300, size.height)
+        if persist {
+            UserDefaults.standard.set(Double(cardWidth), forKey: "cardWidth")
+            UserDefaults.standard.set(Double(cardHeight), forKey: "cardHeight")
+        }
+    }
+
+    /// Set by the view; the panel is only drag-resizable while the expanded card shows.
+    var cardShowing = false { didSet { if cardShowing != oldValue { onCardShowingChanged?(cardShowing) } } }
+    var onCardShowingChanged: ((Bool) -> Void)?
 
     var togglePanel: (() -> Void)?
     var showPanel: (() -> Void)?
@@ -84,33 +137,58 @@ final class AppState: ObservableObject {
 
     func ask(_ preset: Preset) { ask(preset: preset) }
 
+    /// Send one of the model's auto-generated follow-up suggestions.
+    func ask(suggestion: String) {
+        if loggedIn == false { errorText = "Sign in with ChatGPT first."; return }
+        run(label: suggestion, instruction: suggestion, isPreset: false, isFollow: false)
+    }
+
+    /// Suggestions from the most recent answer.
+    var currentSuggestions: [String] {
+        exchanges.last(where: { $0.answer != nil })?.suggestions ?? []
+    }
+
     func ask() { ask(preset: nil) }
 
-    func ask(preset: Preset?) {
-        showPanel?()
-        cardOpen = true
-        askTask?.cancel()
-        codex.cancel()
-
+    /// `automatic`: triggered by the app (auto-answer), not by the user, so it never reveals a hidden panel.
+    func ask(preset: Preset?, automatic: Bool = false) {
+        if automatic && loggedIn == false { return }
         if loggedIn == false {
+            showPanel?(); cardOpen = true; collapsed = false
             errorText = "Sign in with ChatGPT first."
             return
         }
-
         let typed = preset?.instruction ?? question.trimmingCharacters(in: .whitespacesAndNewlines)
         if preset == nil { question = "" }
+        run(label: preset?.rawValue ?? (typed.isEmpty ? "Assist" : typed), instruction: typed,
+            isPreset: preset != nil, isFollow: false, reveal: !automatic)
+    }
+
+    /// Shared request path. Follow-mode requests are quiet: no streaming, dropped if there's nothing new.
+    private func run(label: String, instruction: String, isPreset: Bool, isFollow: Bool, reveal: Bool = true) {
+        // Only what the user triggers opens the panel; Follow and auto-answer stay quiet.
+        let quiet = isFollow || !reveal
+        if !quiet {
+            showPanel?()
+            cardOpen = true
+            collapsed = false
+        }
+        askTask?.cancel()
+        codex.cancel()
         errorText = nil
-        isThinking = true
+        isThinking = !isFollow
+        followBusy = isFollow
         status = "Capturing screen…"
-        exchanges.append(Exchange(ask: preset?.rawValue ?? (typed.isEmpty ? "Assist" : typed), typed: typed,
-                                  isPreset: preset != nil))
+
+        let prompt = buildPrompt(question: instruction)   // built before adding this exchange
+        exchanges.append(Exchange(ask: label, typed: instruction, isPreset: isPreset, isFollow: isFollow))
         let exchangeID = exchanges.last!.id
+        let instructions = systemPrompt
 
         askTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let captureMsg = "Screen capture timed out. Grant Screen Recording to gpt-helper in System Settings ▸ Privacy & Security, then reopen the app."
-                let prompt = self.buildPrompt(question: typed)
                 let answer: String
                 if self.directSignedIn {
                     let image = try await withTimeout(15, captureMsg) { try await ScreenCapture.captureDataURL() }
@@ -118,9 +196,10 @@ final class AppState: ObservableObject {
                     self.status = "Asking ChatGPT…"
                     let model = self.model
                     answer = try await withTimeout(120, "ChatGPT took too long to answer. Try again.") {
-                        try await ResponsesClient.ask(model: model, instructions: Self.instructions, text: prompt,
+                        try await ResponsesClient.ask(model: model, instructions: instructions, text: prompt,
                                                       imageDataURL: image, effort: "low") { [weak self] partial in
-                            guard let self, let i = self.exchanges.firstIndex(where: { $0.id == exchangeID }) else { return }
+                            guard !isFollow, let self,
+                                  let i = self.exchanges.firstIndex(where: { $0.id == exchangeID }) else { return }
                             self.exchanges[i].answer = partial
                         }
                     }
@@ -130,34 +209,126 @@ final class AppState: ObservableObject {
                     self.status = "Asking ChatGPT (via Codex)…"
                     let codex = self.codex
                     answer = try await withTimeout(150, "ChatGPT took too long to answer. Try again.", onTimeout: { codex.cancel() }) {
-                        try await codex.run(prompt: Self.instructions + "\n\n" + prompt, image: image)
+                        try await codex.run(prompt: instructions + "\n\n" + prompt, image: image)
                     }
                     try? FileManager.default.removeItem(at: image)
                 }
                 if Task.isCancelled { return }
+                let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
                 if let i = self.exchanges.firstIndex(where: { $0.id == exchangeID }) {
-                    self.exchanges[i].answer = answer
+                    let parsed = StructuredAnswer.parse(trimmed)
+                    if isFollow && (parsed.isEmpty || (!parsed.hasStructure && parsed.body.uppercased().hasPrefix("NOTHING"))) {
+                        self.exchanges.remove(at: i)          // nothing new worth saying
+                    } else {
+                        self.exchanges[i].answer = answer
+                        self.exchanges[i].suggestions = parsed.suggestions
+                        // Follow never pops the panel open; it only flags that something new arrived.
+                        if quiet && self.collapsed { self.unseenFollow += 1 }
+                    }
                 }
             } catch is CancellationError {
                 if Task.isCancelled { return }
             } catch {
                 if Task.isCancelled { return }
                 self.errorText = error.localizedDescription
+                if isFollow { self.setFollow(false) }      // don't keep hammering on errors / usage limits
                 if let e = error as? SIWCError, e.needsSignIn { self.directSignedIn = false; self.refreshLoggedIn() }
                 if error.localizedDescription.contains("sign-in") { self.loggedIn = false }
             }
             self.isThinking = false
+            self.followBusy = false
+            if let i = self.exchanges.firstIndex(where: { $0.id == exchangeID }) { self.exchanges[i].done = true }
             self.exchanges.removeAll { $0.id == exchangeID && ($0.answer ?? "").isEmpty }
         }
     }
 
-    static let instructions = """
-    You are gpt-helper, a real-time assistant on the user's Mac. You see a screenshot of their screen and, when available, a live transcript of their conversation.
-    - Lead with the answer. Be direct and concise; short bullets over paragraphs.
-    - For code, give complete working code with a one-line explanation of the approach and its complexity.
-    - Reply in the language of the conversation (or of the user's question).
-    - Do not run commands or use tools. Just answer from the screenshot and transcript.
+    // MARK: Bots (profiles)
+
+    @Published var profiles: [Profile] = ProfileStore.load()
+    @Published var selectedProfileID: UUID = {
+        if let s = UserDefaults.standard.string(forKey: "profileID"), let id = UUID(uuidString: s) { return id }
+        return UUID()
+    }()
+
+    var currentProfile: Profile {
+        profiles.first { $0.id == selectedProfileID } ?? profiles[0]
+    }
+
+    var systemPrompt: String { currentProfile.instructions + "\n\n" + ProfileStore.baseRules }
+
+    func selectProfile(_ id: UUID) {
+        selectedProfileID = id
+        UserDefaults.standard.set(id.uuidString, forKey: "profileID")
+    }
+
+    func saveProfiles() { ProfileStore.save(profiles) }
+
+    func addProfile() -> UUID {
+        let p = Profile(name: "New bot", instructions: "You are my real-time assistant for …")
+        profiles.append(p)
+        saveProfiles()
+        return p.id
+    }
+
+    func deleteProfile(_ id: UUID) {
+        guard profiles.count > 1 else { return }
+        profiles.removeAll { $0.id == id }
+        if selectedProfileID == id { selectProfile(profiles[0].id) }
+        saveProfiles()
+    }
+
+    func manageProfiles() { ManageWindowController.shared.show(state: self) }
+
+    // MARK: Follow mode
+
+    @Published var followMode = false
+    @Published var followBusy = false
+    /// Follow suggestions that arrived while the card was collapsed.
+    @Published var unseenFollow = 0
+    private var followTask: Task<Void, Never>?
+    private var lastFingerprint: [UInt8] = []
+    private var lastFollowAt = Date.distantPast
+    private var lastFollowLineCount = 0
+
+    static let followInstruction = """
+    FOLLOW MODE: I'm not asking anything; you're watching my screen and conversation continuously.
+    Show what matters most right now as a diagram (NODE/EDGE) with FOCUS on the next thing to add or the weak spot, plus 1-2 HINT cards in plain words (what to do or say next, concretely).
+    Only react to the task in front of me (the interview, the problem on screen), not to unrelated windows.
+    Don't repeat what you already suggested earlier in this chat. If there's nothing new or useful to add, reply with exactly: NOTHING
     """
+
+    func toggleFollow() { setFollow(!followMode) }
+
+    func setFollow(_ on: Bool) {
+        followMode = on
+        followTask?.cancel()
+        guard on else { return }
+        if loggedIn == false { followMode = false; errorText = "Sign in with ChatGPT first."; return }
+        lastFingerprint = []
+        lastFollowAt = .distantPast
+        if !isListening { startListening() }   // Follow listens to the conversation too
+        followTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.followTick()
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
+    }
+
+    /// Every few seconds: if the screen changed noticeably or new speech arrived, ask for suggestions.
+    private func followTick() async {
+        guard followMode, !isThinking, !followBusy else { return }
+        guard Date().timeIntervalSince(lastFollowAt) >= 20 else { return }
+        guard let fp = try? await ScreenCapture.fingerprint() else { return }
+        let screenChanged = lastFingerprint.isEmpty || ScreenCapture.difference(fp, lastFingerprint) > 12
+        let newSpeech = lines.count > lastFollowLineCount
+        guard screenChanged || newSpeech, followMode, !isThinking else { return }
+        lastFingerprint = fp
+        lastFollowLineCount = lines.count
+        lastFollowAt = Date()
+        Log.write("follow: tick screenChanged=\(screenChanged) newSpeech=\(newSpeech)")
+        run(label: "Follow", instruction: Self.followInstruction, isPreset: false, isFollow: true, reveal: false)
+    }
 
     func setModel(_ slug: String) {
         model = slug
@@ -170,7 +341,7 @@ final class AppState: ObservableObject {
     }
 
     private func buildPrompt(question: String) -> String {
-        let recent = lines.suffix(60).map { "\($0.speaker.label): \($0.text)" }
+        let recent = lines.suffix(300).map { "\($0.speaker.label): \($0.text)" }
         var transcript = recent
         if !partialThem.isEmpty { transcript.append("Them: \(partialThem)") }
         if !partialMe.isEmpty { transcript.append("Me: \(partialMe)") }
@@ -179,12 +350,15 @@ final class AppState: ObservableObject {
             ? "Figure out what I most likely need right now and give it to me. If someone just asked a question in the conversation, answer it as I should. If there is a problem, question or code on screen, solve it."
             : question
 
-        let history = exchanges.dropLast().suffix(4).compactMap { e -> String? in
+        let history = exchanges.suffix(4).compactMap { e -> String? in
             guard let a = e.answer else { return nil }
+            if e.isFollow { return "You (follow-mode suggestion): \(a)" }
             return "Me: \(e.typed.isEmpty ? "(asked for help with the screen)" : e.typed)\nYou: \(a)"
         }
+        let context = currentProfile.context.trimmingCharacters(in: .whitespacesAndNewlines)
 
         return """
+        \(context.isEmpty ? "" : "Context about me / this session:\n<context>\n\(context)\n</context>\n")
         Attached is a screenshot of my screen right now.
         \(transcript.isEmpty ? "" : "Live transcript of the current conversation (\"Me\" = my microphone, \"Them\" = the other people / computer audio):\n<transcript>\n\(transcript.joined(separator: "\n"))\n</transcript>\n")
         \(history.isEmpty ? "" : "Earlier in this chat:\n<history>\n\(history.joined(separator: "\n\n"))\n</history>\n")
@@ -194,11 +368,13 @@ final class AppState: ObservableObject {
 
     func reset() {
         askTask?.cancel()
+        followBusy = false
         codex.cancel()
         isThinking = false
         exchanges = []
         errorText = nil
         cardOpen = false
+        collapsed = false
         lines = []
         partialMe = ""
         partialThem = ""
@@ -221,6 +397,7 @@ final class AppState: ObservableObject {
         t.onCommit = { [weak self] speaker, text in
             guard let self else { return }
             self.lines.append(TranscriptLine(speaker: speaker, text: text))
+            Log.write("transcript: +1 line (\(speaker.label)), \(self.lines.count) total")
             if self.lines.count > 400 { self.lines.removeFirst(self.lines.count - 400) }
             self.transcriptTick += 1
             if speaker == .them { self.scheduleAutoAnswer() }
@@ -229,7 +406,10 @@ final class AppState: ObservableObject {
         t.onError = { [weak self] message in self?.errorText = message }
         transcriber = t
         isListening = true
-        showTranscript = true
+        isPaused = false
+        recordedBefore = 0
+        listenStart = Date()
+        showTranscript = false
         Task {
             do { try await t.start() } catch {
                 self.errorText = error.localizedDescription
@@ -248,7 +428,7 @@ final class AppState: ObservableObject {
             guard let self, !Task.isCancelled, !self.isThinking, self.partialThem.isEmpty else { return }
             let recent = self.lines.suffix(3).filter { $0.speaker == .them }.map(\.text).joined(separator: " ")
             guard Self.looksLikeQuestion(recent) else { return }
-            self.ask(.whatToSay)
+            self.ask(preset: .whatToSay, automatic: true)
         }
     }
 
@@ -264,12 +444,26 @@ final class AppState: ObservableObject {
     }
 
     func stopListening() {
+        let wasListening = isListening
         autoAnswerTask?.cancel()
-        transcriber?.stop()
+        listenStart = nil
+        isPaused = false
+        recordedBefore = 0
+        if let t = transcriber {
+            // Keep the transcriber alive until its last words arrive.
+            Task { await t.stop(); Log.write("listen: stopped, \(self.lines.count) lines total") }
+        }
         transcriber = nil
         isListening = false
         partialMe = ""
         partialThem = ""
+        if wasListening {
+            // Show the full transcript once recording stops (final words may still arrive for a moment).
+            showTranscript = true
+            cardOpen = true
+            collapsed = false
+            showPanel?()
+        }
     }
 
     func setLanguage(_ code: String) {

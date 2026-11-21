@@ -21,31 +21,26 @@ struct SIWCError: LocalizedError {
     var errorDescription: String? { message }
 }
 
-enum Keychain {
-    static let service = "local.gpt-helper.siwc"
-
-    static func save(_ data: Data, account: String) {
-        delete(account: account)
-        let q: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account,
-            kSecValueData: data, kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ]
-        SecItemAdd(q as CFDictionary, nil)
+/// Stores credentials in ~/Library/Application Support/gpt-helper/siwc.json, readable only by this user (0600).
+/// (Avoids repeated Keychain prompts for a self-signed local build.)
+enum TokenStore {
+    static var url: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("gpt-helper", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                                 attributes: [.posixPermissions: 0o700])
+        return dir.appendingPathComponent("siwc.json")
     }
 
-    static func load(account: String) -> Data? {
-        let q: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account,
-            kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne,
-        ]
-        var out: CFTypeRef?
-        return SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess ? out as? Data : nil
+    static func load() -> Data? { try? Data(contentsOf: url) }
+
+    static func save(_ data: Data) {
+        let u = url
+        FileManager.default.createFile(atPath: u.path, contents: data, attributes: [.posixPermissions: 0o600])
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: u.path)
     }
 
-    static func delete(account: String) {
-        let q: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account]
-        SecItemDelete(q as CFDictionary)
-    }
+    static func delete() { try? FileManager.default.removeItem(at: url) }
 }
 
 actor SIWCAuth {
@@ -60,7 +55,7 @@ actor SIWCAuth {
     private var refreshTask: Task<String, Error>?
 
     init() {
-        if let d = Keychain.load(account: "tokens") {
+        if let d = TokenStore.load() {
             tokens = try? JSONDecoder().decode(SIWCTokens.self, from: d)
         }
     }
@@ -83,8 +78,8 @@ actor SIWCAuth {
 
     private func store(_ t: SIWCTokens?) {
         tokens = t
-        if let t, let d = try? JSONEncoder().encode(t) { Keychain.save(d, account: "tokens") }
-        else { Keychain.delete(account: "tokens") }
+        if let t, let d = try? JSONEncoder().encode(t) { TokenStore.save(d) }
+        else { TokenStore.delete() }
     }
 
     func signOut() { store(nil) }

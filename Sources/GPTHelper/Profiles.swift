@@ -20,7 +20,7 @@ enum ProfileStore {
     static func load() -> [Profile] {
         if let d = try? Data(contentsOf: url), var p = try? JSONDecoder().decode([Profile].self, from: d), !p.isEmpty {
             // Upgrade built-in prompts the user never edited.
-            let previous = [oldSystemDesignPrompt, previousSystemDesignPrompt2, previousSystemDesignPrompt3]
+            let previous = [oldSystemDesignPrompt, previousSystemDesignPrompt2, previousSystemDesignPrompt3, previousSystemDesignPrompt4]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             for i in p.indices where previous.contains(p[i].instructions.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 p[i].instructions = systemDesignPrompt
@@ -64,7 +64,7 @@ enum ProfileStore {
     Tell me the next thing to say or draw, with concrete numbers and technologies, and the trade-offs worth mentioning.
     """
 
-    static let systemDesignPrompt = """
+    static let previousSystemDesignPrompt4 = """
     You are my real-time system design interview copilot. Read the board and what was just said, work out which step of the delivery framework we're in, and give me the single next move for THIS problem.
     Start every answer with: STAGE: <Requirements | Core Entities | API | Data Flow | High-Level Design | Deep Dives>
 
@@ -86,6 +86,20 @@ enum ProfileStore {
     If a step is clearly done on the board, move me to the next one. Be concrete to this problem: its entities, endpoints and numbers. No generic advice.
     """
 
+    static let systemDesignPrompt = """
+    You are my real-time system design interview copilot. Read the board and what was just said, work out which step of the delivery framework we're in, and give me the single next move for THIS problem.
+
+    The framework, in order (keep me moving; a working system beats a perfect one):
+    1. Requirements (~5 min). Functional: the top 3 "users should be able to…", nothing more. Non-functional: the top 3-5, quantified and in context ("search < 500 ms", "availability over consistency for browsing", "100M DAU"). Checklist: CAP, scale and read/write ratio, latency, durability, security, fault tolerance, compliance. Skip capacity math upfront; do it later only if a number changes the design (then give it computed, never ask me to compute).
+    2. Core Entities (~2 min). A short list of well-named nouns (e.g. User, Listing, Order). No columns yet.
+    3. API (~5 min). REST by default, plural resources, one endpoint per functional requirement; the current user comes from the auth token, never the body. Put the endpoints in a code block.
+    4. Data Flow (optional, only for processing pipelines). A short numbered list.
+    5. High-Level Design (~10-15 min). Build it endpoint by endpoint, simplest thing that satisfies the API. Name each box's kind and why (Postgres for transactions/stock, Redis for key lookups/TTL, Elasticsearch for search, SQS/Kafka to buffer, S3 for files). Write the few columns that matter next to the database. Don't add complexity yet: note caches/queues as a callout for later.
+    6. Deep Dives (~10 min). Harden for each non-functional requirement: bottlenecks, edge cases, scaling, the interviewer's probes. Stress a box through cost, latency, scale, correctness, reliability, concurrency; say the states of any lifecycle (e.g. order: pending → reserved → paid | cancelled).
+
+    If a step is clearly done on the board, move me to the next one. Be concrete to this problem: its entities, endpoints and numbers. No generic advice.
+    """
+
     static func save(_ profiles: [Profile]) {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted]
@@ -97,21 +111,8 @@ enum ProfileStore {
     Rules:
     - Always reply in English, even if I write or speak in another language.
     - Do not run commands or use tools. Answer from the screenshot, transcript and context.
-    - I read your answer in a glance while talking, so use this line format (each item on its own line, nothing before it):
-    HINT: <big takeaway, max 5 words, plain words anyone gets instantly, no jargon> | <one short line: the concrete what or how, with a number or example>
-      (1 to 3 HINT lines, most important first. These are the core of the answer.)
-    NEXT: <the next concrete thing to say, write or draw>   (optional)
-    SAY: <2-3 natural first-person sentences I could say out loud>   (optional)
-    - ALWAYS answer with a DIAGRAM: it is the main answer. Lists become maps (a hub node with spokes), relations become edges, steps become a flow, code becomes the algorithm's steps. Add at most 2 HINT lines. Diagram format:
-    NODE: <id> | <label, 1-2 words, e.g. "Postgres"> | <kind or role, max 3 words, e.g. "orders · stock">
-    EDGE: <id> -> <id> | <optional label, max 2 words, e.g. "POST /orders">
-    Keep diagrams small and readable at a glance: 4 to 7 nodes, only the main path (no more than 8 edges).
-    FOCUS: <id> | <why this component matters now: its kind and why it fits, or what breaks>
-    - For code: after the lines above, a normal fenced code block, then one line on approach and complexity.
-    - Always end with exactly 3 follow-ups I might want to ask next (max 8 words each, my voice, in English):
-    SUGGEST: <follow-up>
-    SUGGEST: <follow-up>
-    SUGGEST: <follow-up>
+    - I read your answer in a glance while talking: plain text, short and direct, most important thing first. Short paragraphs or a short list; no headings, no preamble.
+    - For code: a normal fenced code block, then one line on approach and complexity.
     """
 
     static let defaults: [Profile] = [
@@ -216,7 +217,7 @@ struct ManageView: View {
             HStack {
                 TextField("Name", text: binding(i, \.name))
                     .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.inter(15, weight: .semibold))
                 Button(state.profiles[i].id == state.selectedProfileID ? "In use" : "Use this bot") {
                     state.selectProfile(state.profiles[i].id)
                 }
@@ -225,14 +226,14 @@ struct ManageView: View {
             Text("System prompt").font(.headline)
             Text("How this bot should behave.").font(.caption).foregroundStyle(.secondary)
             TextEditor(text: binding(i, \.instructions))
-                .font(.system(size: 13))
+                .font(.inter(13))
                 .frame(minHeight: 150)
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
             Text("Context").font(.headline)
             Text("Facts it should know: your resume, the job description, product notes…")
                 .font(.caption).foregroundStyle(.secondary)
             TextEditor(text: binding(i, \.context))
-                .font(.system(size: 13))
+                .font(.inter(13))
                 .frame(minHeight: 150)
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
             dropZone(i)
@@ -242,9 +243,9 @@ struct ManageView: View {
 
     private func dropZone(_ i: Int) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "doc.badge.plus").font(.system(size: 18))
+            Image(systemName: "doc.badge.plus").font(.inter(18))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Drop files here to add them to the context").font(.system(size: 13, weight: .medium))
+                Text("Drop files here to add them to the context").font(.inter(13, weight: .medium))
                 Text(fileNote ?? "PDF, Word, TXT, Markdown, RTF — the text is extracted and appended.")
                     .font(.caption).foregroundStyle(.secondary)
             }

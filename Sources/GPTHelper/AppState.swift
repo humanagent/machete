@@ -10,6 +10,8 @@ struct TranscriptLine: Identifiable {
     let id = UUID()
     let speaker: Speaker
     let text: String
+    /// Seconds into the recording when the line was finalized.
+    var offset = 0
 }
 
 struct Exchange: Identifiable {
@@ -19,7 +21,6 @@ struct Exchange: Identifiable {
     var isPreset = false
     var isFollow = false
     var answer: String?
-    var suggestions: [String] = []
     var done = false
 }
 
@@ -137,17 +138,6 @@ final class AppState: ObservableObject {
 
     func ask(_ preset: Preset) { ask(preset: preset) }
 
-    /// Send one of the model's auto-generated follow-up suggestions.
-    func ask(suggestion: String) {
-        if loggedIn == false { errorText = "Sign in with ChatGPT first."; return }
-        run(label: suggestion, instruction: suggestion, isPreset: false, isFollow: false)
-    }
-
-    /// Suggestions from the most recent answer.
-    var currentSuggestions: [String] {
-        exchanges.last(where: { $0.answer != nil })?.suggestions ?? []
-    }
-
     func ask() { ask(preset: nil) }
 
     /// `automatic`: triggered by the app (auto-answer), not by the user, so it never reveals a hidden panel.
@@ -216,12 +206,11 @@ final class AppState: ObservableObject {
                 if Task.isCancelled { return }
                 let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
                 if let i = self.exchanges.firstIndex(where: { $0.id == exchangeID }) {
-                    let parsed = StructuredAnswer.parse(trimmed)
-                    if isFollow && (parsed.isEmpty || (!parsed.hasStructure && parsed.body.uppercased().hasPrefix("NOTHING"))) {
-                        self.exchanges.remove(at: i)          // nothing new worth saying
+                    if isFollow && (trimmed.isEmpty || Self.isSilent(trimmed)) {
+                        self.exchanges.remove(at: i)          // SILENT: no mistake, show nothing
+                        Log.write("follow: silent")
                     } else {
                         self.exchanges[i].answer = answer
-                        self.exchanges[i].suggestions = parsed.suggestions
                         // Follow never pops the panel open; it only flags that something new arrived.
                         if quiet && self.collapsed { self.unseenFollow += 1 }
                     }
@@ -294,12 +283,19 @@ final class AppState: ObservableObject {
     FOLLOW MODE (error checker): I'm not asking anything; you're watching my screen and conversation continuously.
     Your ONLY job is to catch MY mistakes: things "Me" said in the transcript, or what I wrote/drew on screen (code, design, math, answers).
     A mistake is something factually wrong, a bug, a wrong complexity or number, a design flaw that breaks a requirement, or a misunderstanding of what "Them" asked.
-    Do NOT give ideas, next steps, tips, improvements, style nits or answers to questions I haven't attempted yet. Ignore what other people said except to judge whether I understood them.
-    If you find a real mistake: no diagram. Reply with 1-2 HINT lines, each: HINT: <what's wrong, max 5 words> | <the correct version, concretely>. Optionally one SAY: line with how to correct it out loud.
-    Only flag mistakes you are confident about. Don't repeat a correction you already made earlier in this chat.
-    If I made no new mistake, reply with exactly: NOTHING
-    This overrides the usual answer format: no NODE/EDGE/FOCUS/NEXT/SUGGEST in follow mode.
+    Do NOT give ideas, next steps, tips, improvements, style nits or answers to questions I haven't attempted yet.
+    If you find a real mistake: one or two short sentences saying what's wrong and the correct version. A short code block only if the fix is code.
+    Use judgment: staying silent is the normal, expected outcome. Only flag mistakes you are confident about; when in doubt, stay silent. Don't repeat a correction you already made earlier in this chat.
+    If there's no new mistake, reply with only the tag SILENT and nothing else. Never write things like "no mistake visible" or "looks good"; that's what SILENT is for.
     """
+
+    /// Follow's "nothing to say" tag, only when it stands on a line of its own.
+    static func isSilent(_ text: String) -> Bool {
+        text.components(separatedBy: "\n").contains { line in
+            let t = line.trimmingCharacters(in: CharacterSet(charactersIn: " *`.[]<>").union(.whitespaces)).uppercased()
+            return t == "SILENT" || t == "NOTHING"
+        }
+    }
 
     func toggleFollow() { setFollow(!followMode) }
 
@@ -400,7 +396,7 @@ final class AppState: ObservableObject {
         }
         t.onCommit = { [weak self] speaker, text in
             guard let self else { return }
-            self.lines.append(TranscriptLine(speaker: speaker, text: text))
+            self.lines.append(TranscriptLine(speaker: speaker, text: text, offset: self.recordedSeconds(at: Date())))
             Log.write("transcript: +1 line (\(speaker.label)), \(self.lines.count) total")
             if self.lines.count > 400 { self.lines.removeFirst(self.lines.count - 400) }
             self.transcriptTick += 1

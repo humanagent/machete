@@ -10,6 +10,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/GPTHelper "$APP/Contents/MacOS/gpt-helper"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/*.svg "$APP/Contents/Resources/"
+cp Resources/*.ttf Resources/Inter-LICENSE.txt "$APP/Contents/Resources/"
 
 # Signing identity, in order of preference:
 #  1. An Apple Development / Developer ID certificate, if you have one.

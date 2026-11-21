@@ -1,25 +1,17 @@
 import SwiftUI
 
-/// Suggested next prompts. After each answer these are the model's own auto-generated suggestions;
-/// before any answer, during a conversation, it offers the conversation presets.
+/// Conversation presets (what to say, follow-up questions, recap) while a conversation is going.
 /// Self-contained: only talks to AppState through `ask(...)`.
 struct ConversationActions: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        let suggestions = state.currentSuggestions
         let conversation = state.isListening || !state.lines.isEmpty
-        if !state.isThinking && (!suggestions.isEmpty || conversation) {
+        if !state.isThinking && conversation {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    if !suggestions.isEmpty {
-                        ForEach(Array(suggestions.enumerated()), id: \.offset) { i, text in
-                            ActionChip(title: text, primary: i == 0) { state.ask(suggestion: text) }
-                        }
-                    } else {
-                        ForEach(Preset.allCases, id: \.self) { preset in
-                            ActionChip(title: preset.rawValue, primary: preset == .whatToSay) { state.ask(preset) }
-                        }
+                    ForEach(Preset.allCases, id: \.self) { preset in
+                        ActionChip(title: preset.rawValue, primary: preset == .whatToSay) { state.ask(preset) }
                     }
                 }
             }
@@ -39,7 +31,7 @@ private struct ActionChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.inter(13, weight: .medium))
                 .lineLimit(1)
                 .padding(.horizontal, 14).padding(.vertical, 7)
                 .background(Capsule().fill(primary

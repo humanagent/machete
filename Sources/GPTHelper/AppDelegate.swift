@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppFonts.register()
         panel = OverlayPanel(rootView: OverlayView(state: state))
         panel.onUserResize = { [weak self] size, done in self?.state.setCardSize(size, persist: done) }
         state.onCardShowingChanged = { [weak self] showing in self?.panel.allowUserResize = showing }
@@ -29,13 +30,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Panel
 
+    private var placedOnce = false
+
     func showPanel() {
-        if !panel.isVisible {
-            panel.positionTopCenter()
-            panel.orderFrontRegardless()
-            // Re-pin once SwiftUI has sized the content.
-            DispatchQueue.main.async { [weak self] in self?.panel.positionTopCenter() }
-        }
+        guard !panel.isVisible else { return }
+        panel.orderFrontRegardless()
+        // Top-center only the first time; after that, hiding and showing keeps wherever it was moved.
+        guard !placedOnce else { return }
+        placedOnce = true
+        panel.positionTopCenter()
+        // Re-pin once SwiftUI has sized the content.
+        DispatchQueue.main.async { [weak self] in self?.panel.positionTopCenter() }
     }
 
     func togglePanel() {

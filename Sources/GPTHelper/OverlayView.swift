@@ -4,13 +4,50 @@ import SwiftUI
 // MARK: - Glass
 
 /// See-through slate glass: faint blur + translucent tint.
+/// Blurred backdrop plus a neutral tint: the bar is a lighter, more solid gray; the body a darker, see-through gray.
 struct Glass: View {
     var opacity: Double
+    /// Body: dark slate blue. The menu's transparency setting (0-1) maps to 50-100% tint.
+    var tint: Color = Color(red: 0.106, green: 0.149, blue: 0.180)
     var body: some View {
         ZStack {
             BlurView()
-            Color(red: 0.16, green: 0.21, blue: 0.27).opacity(opacity)
+            tint.opacity(0.5 + 0.5 * opacity)
         }
+    }
+}
+
+/// Bottom-edge grip: drags change the panel height; it never moves the window.
+struct ResizeGrip: NSViewRepresentable {
+    var startHeight: () -> CGFloat
+    var onDrag: (CGFloat) -> Void
+    var onEnd: () -> Void
+
+    func makeNSView(context: Context) -> GripView { GripView() }
+    func updateNSView(_ v: GripView, context: Context) {
+        v.startHeight = startHeight; v.onDrag = onDrag; v.onEnd = onEnd
+    }
+
+    final class GripView: NSView {
+        var startHeight: () -> CGFloat = { 0 }
+        var onDrag: (CGFloat) -> Void = { _ in }
+        var onEnd: () -> Void = {}
+        private var startMouseY: CGFloat = 0
+        private var startH: CGFloat = 0
+
+        override var mouseDownCanMoveWindow: Bool { false }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeUpDown) }
+
+        override func mouseDown(with event: NSEvent) {
+            startMouseY = NSEvent.mouseLocation.y
+            startH = startHeight()
+        }
+        override func mouseDragged(with event: NSEvent) {
+            // Screen y grows upward: dragging down (smaller y) makes the panel taller.
+            onDrag(startH + (startMouseY - NSEvent.mouseLocation.y))
+        }
+        override func mouseUp(with event: NSEvent) { onEnd() }
     }
 }
 
@@ -40,10 +77,10 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .regular))
+                .font(.inter(16, weight: .regular))
                 .foregroundStyle(active ? activeColor : .white.opacity(hover ? 1 : 0.8))
                 .frame(width: 34, height: 30)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(hover ? 0.1 : 0)))
+                .background(RoundedRectangle(cornerRadius: 9).fill(.white.opacity(hover ? 0.16 : 0.08)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -56,11 +93,11 @@ struct Key: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .medium))
+            .font(.inter(13, weight: .medium))
             .foregroundStyle(.white.opacity(0.85))
             .frame(minWidth: 26, minHeight: 26)
             .padding(.horizontal, 2)
-            .background(RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.12)))
+            .background(RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.16)))
     }
 }
 
@@ -101,7 +138,7 @@ struct SignInButton: View {
                     Image(nsImage: logo).resizable().interpolation(.high).frame(width: 20, height: 20)
                 }
                 Text(loading ? "Waiting for browser…" : "Sign in with ChatGPT")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.inter(15, weight: .medium))
             }
             .foregroundStyle(Color(white: 0.05))
             .padding(.horizontal, 24)
@@ -125,28 +162,66 @@ struct OverlayView: View {
     private var cardVisible: Bool {
         if state.collapsed { return false }
         return state.cardOpen || state.loggedIn == false || state.isThinking || !state.exchanges.isEmpty
-            || state.errorText != nil || state.showTranscript
+            || state.errorText != nil || (state.showTranscript && !state.isListening)
     }
 
-    private let barGlass = 0.80
+    private let barGlass = 0.84          // → 92% tint: lighter and more solid than the body
+    private let barTint = Color(red: 0.287, green: 0.345, blue: 0.393)
 
     var body: some View {
-        VStack(spacing: 8) {
+        let bodyH = max(160, state.cardHeight - 66) + 0.5
+        // One panel: the bar on top joined to the body below (no separate floating pieces).
+        // The body's height animates; the window keeps room for it until a collapse finishes,
+        // so opening and closing are smooth instead of the window jumping.
+        VStack(spacing: 0) {
             bar
-            if cardVisible {
-                card.frame(height: max(220, state.cardHeight - 60))
+            if bodyMounted {
+                VStack(spacing: 0) {
+                    Rectangle().fill(.white.opacity(0.08)).frame(height: 0.5)
+                    card.frame(height: bodyH - 0.5)
+                        .overlay(alignment: .bottom) { resizeHandle }
+                }
+                .frame(height: bodyOpen ? bodyH : 0, alignment: .top)
+                .clipped()
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.5))
+        .frame(height: 58 + (bodyMounted ? bodyH : 0), alignment: .top)
         .frame(width: state.cardWidth)
         .padding(8)
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
-        .animation(.easeOut(duration: 0.12), value: cardVisible)
-        .onAppear { state.cardShowing = cardVisible }
-        .onChange(of: cardVisible) { state.cardShowing = cardVisible }
+        .onAppear {
+            state.cardShowing = cardVisible
+            bodyMounted = cardVisible; bodyOpen = cardVisible
+        }
+        .onChange(of: cardVisible) {
+            state.cardShowing = cardVisible
+            setBody(open: cardVisible)
+        }
         .onChange(of: state.focusInput) {
             state.collapsed = false
             DispatchQueue.main.async { inputFocused = true }
+        }
+    }
+
+    @State private var bodyMounted = false   // window has room for the body
+    @State private var bodyOpen = false      // body drawn at full height (animated)
+    @State private var bodyGeneration = 0
+
+    private func setBody(open: Bool) {
+        bodyGeneration += 1
+        let gen = bodyGeneration
+        if open {
+            bodyMounted = true
+            DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.22)) { bodyOpen = true } }
+        } else {
+            withAnimation(.easeIn(duration: 0.18)) { bodyOpen = false }
+            // Give the room back only after the body has slid closed.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                if gen == bodyGeneration { bodyMounted = false }
+            }
         }
     }
 
@@ -154,6 +229,26 @@ struct OverlayView: View {
 
     private var bar: some View {
         HStack(spacing: 8) {
+            // Collapse / expand, at the left next to the input (like the reference's back button).
+            Button {
+                if cardVisible { state.collapsed = true; state.showTranscript = false }
+                else { state.collapsed = false; state.cardOpen = true; state.unseenFollow = 0 }
+            } label: {
+                Image(systemName: cardVisible ? "arrow.left" : "arrow.down")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(width: 40, height: 40)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white.opacity(0.11)))
+                    .contentShape(Rectangle())
+                    .overlay(alignment: .topTrailing) {
+                        if !cardVisible && state.unseenFollow > 0 {
+                            Circle().fill(Color(red: 0.5, green: 0.69, blue: 1)).frame(width: 7, height: 7).offset(x: -3, y: 3)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+            .help(cardVisible ? "Collapse" : (state.unseenFollow > 0 ? "New Follow correction" : "Show answers"))
+
             if state.isListening {
                 HStack(spacing: 6) {
                     Circle().fill(state.isPaused ? Color.white.opacity(0.4) : Color(red: 1, green: 0.35, blue: 0.32))
@@ -161,7 +256,7 @@ struct OverlayView: View {
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                         let secs = state.recordedSeconds(at: ctx.date)
                         Text(String(format: "%d:%02d", secs / 60, secs % 60))
-                            .font(.system(size: 12.5, weight: .medium).monospacedDigit())
+                            .font(.inter(12.5, weight: .medium).monospacedDigit())
                             .foregroundStyle(.white.opacity(state.isPaused ? 0.45 : 0.8))
                     }
                 }
@@ -169,20 +264,20 @@ struct OverlayView: View {
             }
 
             TextField("", text: $state.question,
-                      prompt: Text(state.exchanges.isEmpty ? "Ask anything…" : "Ask follow-up…")
+                      prompt: Text(state.exchanges.isEmpty ? "Ask a follow-up about the meeting…" : "Ask follow-up…")
                         .foregroundStyle(.white.opacity(0.45)))
                 .textFieldStyle(.plain)
-                .font(.system(size: 16))
+                .font(.inter(16))
                 .focused($inputFocused)
                 .onSubmit(state.ask)
                 .frame(minWidth: 120)
 
             Button(action: state.ask) {
                 Text("⌥ ↩")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.1)))
+                    .font(.inter(13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(minWidth: 40, minHeight: 32)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(.white.opacity(0.22)))
             }
             .buttonStyle(.plain)
             .help("Ask about the screen")
@@ -210,29 +305,22 @@ struct OverlayView: View {
                 IconButton(systemName: "waveform", help: "Record (⌥M)", action: state.toggleListening)
             }
 
-            Button {
-                if cardVisible { state.collapsed = true; state.showTranscript = false }
-                else { state.collapsed = false; state.cardOpen = true; state.unseenFollow = 0 }
-            } label: {
-                Image(systemName: cardVisible ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(width: 20, height: 30)
-                    .contentShape(Rectangle())
-                    .overlay(alignment: .topTrailing) {
-                        if !cardVisible && state.unseenFollow > 0 {
-                            Circle().fill(Color(red: 0.5, green: 0.69, blue: 1)).frame(width: 7, height: 7).offset(x: 1, y: 4)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .help(cardVisible ? "Collapse" : (state.unseenFollow > 0 ? "New Follow suggestions" : "Show answers"))
         }
-        .padding(.leading, 16).padding(.trailing, 10)
-        .frame(height: 52)
-        .background(Glass(opacity: barGlass))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.5))
+        .padding(.leading, 10).padding(.trailing, 10)
+        .frame(height: 58)
+        .background(Glass(opacity: barGlass, tint: barTint))
+    }
+
+    /// Grab the bottom edge and drag to make the panel shorter or taller.
+    /// AppKit-backed so the drag resizes instead of moving the (movable-by-background) window.
+    private var resizeHandle: some View {
+        ResizeGrip(
+            startHeight: { state.cardHeight },
+            onDrag: { h in state.cardHeight = min(1400, max(220, h)) },
+            onEnd: { UserDefaults.standard.set(Double(state.cardHeight), forKey: "cardHeight") }
+        )
+        .frame(height: 10)
+        .help("Drag to resize")
     }
 
     // MARK: Answer card
@@ -249,19 +337,20 @@ struct OverlayView: View {
                         if state.isThinking && (state.exchanges.last?.answer ?? "").isEmpty {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small).tint(.white)
-                                Text(state.status).font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.55))
+                                Text(state.status).font(.inter(13.5)).foregroundStyle(.white.opacity(0.55))
                             }
                         }
 
                         if let err = state.errorText {
                             Text(err)
-                                .font(.system(size: 13))
+                                .font(.inter(13))
                                 .foregroundStyle(Color(red: 1, green: 0.75, blue: 0.5))
                                 .fixedSize(horizontal: false, vertical: true)
                                 .textSelection(.enabled)
                         }
 
-                        if state.showTranscript { transcript }
+                        // Never on screen while recording; it shows once recording stops.
+                        if state.showTranscript && !state.isListening { transcript }
                         Color.clear.frame(height: 1).id("end")
                     }
                     .padding(16)
@@ -272,58 +361,50 @@ struct OverlayView: View {
                 .onChange(of: state.isThinking) { withAnimation { proxy.scrollTo("end") } }
             }
 
-            ConversationActions(state: state)
-                .padding(.bottom, 12)
 
             cardFooter
         }
         .background(Glass(opacity: state.glassOpacity))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
     }
 
     private var cardFooter: some View {
         HStack(spacing: 12) {
-            Text(state.currentProfile.name)
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.45))
             Spacer()
-            if !state.lines.isEmpty || state.isListening {
+            if !state.lines.isEmpty && !state.isListening {
                 Button { state.showTranscript.toggle() } label: {
                     Label("Transcript", systemImage: "doc.text")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.inter(12, weight: .medium))
                         .foregroundStyle(.white.opacity(state.showTranscript ? 1 : 0.65))
                 }
                 .buttonStyle(.plain)
             }
             if !state.exchanges.isEmpty {
                 Button(action: state.reset) {
-                    HStack(spacing: 4) {
-                        Text("New chat").font(.system(size: 12, weight: .medium))
-                        Text("⌥R").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
+                    HStack(spacing: 6) {
+                        Text("New Chat").font(.inter(13, weight: .medium)).foregroundStyle(.white.opacity(0.75))
+                        Key(text: "⌥")
+                        Key(text: "R")
                     }
-                    .foregroundStyle(.white.opacity(0.65))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
-        .background(Color.white.opacity(0.04))
     }
 
     private var signInHero: some View {
         VStack(spacing: 14) {
             Text("Connect your ChatGPT plan")
-                .font(.system(size: 19, weight: .semibold))
+                .font(.inter(19, weight: .semibold))
             Text("Answers use your Plus or Pro subscription. No API key needed.")
-                .font(.system(size: 13.5))
+                .font(.inter(13.5))
                 .foregroundStyle(.white.opacity(0.55))
             SignInButton(loading: state.signingIn, action: state.login)
                 .padding(.top, 6)
             if state.signingIn {
                 Text("Finish signing in in your browser…")
-                    .font(.system(size: 12.5))
+                    .font(.inter(12.5))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
@@ -332,65 +413,87 @@ struct OverlayView: View {
         .padding(.vertical, 40)
     }
 
+    /// What I asked as a bubble on the right ("Assist" when I just pressed enter), then the answer.
+    /// Follow corrections have no bubble.
     private func exchangeView(_ e: Exchange) -> some View {
-        let parsed = StructuredAnswer.parse(e.answer ?? "", streaming: !e.done)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                if e.isFollow {
-                    Label("Following", systemImage: "binoculars.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.6, green: 0.76, blue: 1))
-                } else {
+        VStack(alignment: .leading, spacing: 8) {
+            if !e.isFollow {
+                HStack {
+                    Spacer(minLength: 60)
                     Text(e.ask)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .lineLimit(2)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Capsule().fill(e.isPreset || e.ask == "Assist"
-                            ? Color(red: 0.18, green: 0.36, blue: 0.83) : Color.white.opacity(0.14)))
+                        .font(.inter(14, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.16)))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+                        .textSelection(.enabled)
                 }
-                Text(state.isListening || !state.lines.isEmpty ? "viewed screen · heard conversation" : "viewed screen")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.45))
-                Spacer()
-                if e.done, let raw = e.answer {
+                .padding(.bottom, 6)
+            }
+            if let answer = e.answer {
+                BodyView(text: answer)
+                if e.done {
                     Button {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(parsed.hasStructure ? parsed.plainText : raw, forType: .string)
+                        NSPasteboard.general.setString(answer, forType: .string)
                     } label: {
-                        Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundStyle(.white.opacity(0.5))
+                        Image(systemName: "doc.on.doc").font(.inter(12)).foregroundStyle(.white.opacity(0.45))
                     }
                     .buttonStyle(.plain)
                     .help("Copy")
                 }
             }
-            if e.answer != nil { AnswerView(answer: parsed) }
         }
     }
 
     private var transcript: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("TRANSCRIPT").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(.white.opacity(0.45))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("TRANSCRIPT").font(.inter(11, weight: .semibold)).tracking(1.6).foregroundStyle(.white.opacity(0.45))
+                Spacer()
+                if !state.lines.isEmpty {
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(state.lines.map { "\(Self.clock($0.offset)) \($0.speaker.label): \($0.text)" }
+                            .joined(separator: "\n"), forType: .string)
+                    } label: {
+                        Label("Copy Transcript", systemImage: "doc.on.doc")
+                            .font(.inter(12, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             if state.lines.isEmpty && state.partialMe.isEmpty && state.partialThem.isEmpty {
                 Text(state.isListening ? "Listening… words show up here as they're recognized." : "Nothing transcribed yet.")
-                    .font(.system(size: 13)).foregroundStyle(.white.opacity(0.4))
+                    .font(.inter(13)).foregroundStyle(.white.opacity(0.4))
             }
             ForEach(state.lines) { line in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(line.speaker.label).foregroundStyle(.white.opacity(0.45))
-                    Text(line.text).foregroundStyle(.white.opacity(0.9))
-                }
+                transcriptRow(time: Self.clock(line.offset), speaker: line.speaker, text: line.text, final: true)
             }
             // Words still being recognized (not final yet).
             ForEach([(Speaker.them, state.partialThem), (Speaker.me, state.partialMe)].filter { !$0.1.isEmpty }, id: \.0.label) { p in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(p.0.label).foregroundStyle(.white.opacity(0.35))
-                    Text(p.1).foregroundStyle(.white.opacity(0.55)).italic()
-                }
+                transcriptRow(time: "", speaker: p.0, text: p.1, final: false)
             }
         }
-        .font(.system(size: 13))
         .textSelection(.enabled)
     }
+
+    private func transcriptRow(time: String, speaker: Speaker, text: String, final: Bool) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text(time).font(.inter(11.5).monospacedDigit()).foregroundStyle(.white.opacity(0.4))
+                .frame(width: 52, alignment: .leading).padding(.top, 2)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(speaker.label.uppercased()).font(.inter(10.5, weight: .semibold)).tracking(1.4)
+                    .foregroundStyle(.white.opacity(0.45))
+                Text(text).font(.inter(14.5)).foregroundStyle(.white.opacity(final ? 0.92 : 0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    static func clock(_ secs: Int) -> String { String(format: "%d:%02d", secs / 60, secs % 60) }
 
     private var botsMenu: some View {
         Menu {
@@ -413,7 +516,7 @@ struct OverlayView: View {
             }
         } label: {
             Image(systemName: "square.grid.2x2")
-                .font(.system(size: 15))
+                .font(.inter(15))
                 .foregroundStyle(.white.opacity(0.8))
                 .frame(width: 30, height: 30)
                 .contentShape(Rectangle())

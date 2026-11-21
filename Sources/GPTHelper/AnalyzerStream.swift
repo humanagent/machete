@@ -20,6 +20,10 @@ final class AnalyzerStream: @unchecked Sendable {
     private var converter: AVAudioConverter? // used only from the audio thread
     private var frames = 0, lastLogged = 0
     private var windowPeak: Float = 0
+    /// Diagnostics only (`defaults write local.gpt-helper debugAudio -bool YES`): what the analyzer hears,
+    /// saved to ~/Library/Logs/gpt-helper-<name>.caf, overwritten each recording.
+    private var debugFile: AVAudioFile?
+    private var volatileCount = 0
 
     private func peak(_ b: AVAudioPCMBuffer) -> Float {
         guard let ch = b.floatChannelData?[0] else { return -1 }
@@ -53,12 +57,27 @@ final class AnalyzerStream: @unchecked Sendable {
         targetFormat = format
         lock.unlock()
 
+        if UserDefaults.standard.bool(forKey: "debugAudio"), let format {
+            let url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Logs/gpt-helper-\(name.lowercased()).caf")
+            try? FileManager.default.removeItem(at: url)
+            debugFile = try? AVAudioFile(forWriting: url, settings: format.settings,
+                                         commonFormat: format.commonFormat, interleaved: format.isInterleaved)
+            Log.write("[\(name)] debug audio -> \(url.lastPathComponent) \(debugFile != nil ? "ok" : "FAILED")")
+        }
+
         let name = self.name
         resultsTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
                     if !result.isFinal {
+                        if let self {
+                            self.volatileCount += 1
+                            if self.volatileCount == 1 || self.volatileCount % 50 == 0 {
+                                Log.write("[\(name)] volatile #\(self.volatileCount) (\(text.count) chars)")
+                            }
+                        }
                         if let cb = self?.onPartial { await cb(text) }
                         continue
                     }
@@ -91,7 +110,8 @@ final class AnalyzerStream: @unchecked Sendable {
             Log.write("[\(name)] finalize error: \(error)")
         }
         await resultsTask?.value
-        Log.write("[\(name)] finished")
+        debugFile = nil   // closes the file
+        Log.write("[\(name)] finished (volatile results: \(volatileCount))")
     }
 
     /// Called from audio threads.
@@ -118,6 +138,7 @@ final class AnalyzerStream: @unchecked Sendable {
         }
 
         guard let fmt, buf.format != fmt else {
+            try? debugFile?.write(from: buf)
             b.yield(AnalyzerInput(buffer: buf))
             return
         }
@@ -136,6 +157,10 @@ final class AnalyzerStream: @unchecked Sendable {
             status.pointee = .haveData
             return buf
         }
-        if err == nil, out.frameLength > 0 { b.yield(AnalyzerInput(buffer: out)) }
+        if let err { Log.write("[\(name)] convert error: \(err)") }
+        if err == nil, out.frameLength > 0 {
+            try? debugFile?.write(from: out)
+            b.yield(AnalyzerInput(buffer: out))
+        }
     }
 }

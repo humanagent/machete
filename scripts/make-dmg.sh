@@ -9,8 +9,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-NAME="${APP_NAME:-gpt-helper}"
-APP=build/gpt-helper.app
+NAME="${APP_NAME:-Machete}"
+APP=build/Machete.app
 DMG="build/${NAME}.dmg"
 
 ./build.sh
@@ -18,7 +18,7 @@ DMG="build/${NAME}.dmg"
 if [[ -n "${DEVELOPER_ID:-}" ]]; then
   echo "Signing with: $DEVELOPER_ID (hardened runtime)"
   codesign --force --options runtime --timestamp \
-    --entitlements Resources/gpt-helper.entitlements \
+    --entitlements Resources/Machete.entitlements \
     --sign "$DEVELOPER_ID" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 fi

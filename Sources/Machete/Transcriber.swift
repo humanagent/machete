@@ -274,7 +274,7 @@ final class MicCapture {
 final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     var sink: ((AVAudioPCMBuffer) -> Void)?
     private var stream: SCStream?
-    private let queue = DispatchQueue(label: "gpt-helper.system-audio")
+    private let queue = DispatchQueue(label: "machete.system-audio")
 
     func start() async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -308,7 +308,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         Log.write("system audio stopped: \(error)")
-        NSLog("gpt-helper: system audio stopped: \(error.localizedDescription)")
+        NSLog("Machete: system audio stopped: \(error.localizedDescription)")
     }
 }
 

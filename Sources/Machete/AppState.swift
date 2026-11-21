@@ -178,7 +178,7 @@ final class AppState: ObservableObject {
         askTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let captureMsg = "Screen capture timed out. Grant Screen Recording to gpt-helper in System Settings ▸ Privacy & Security, then reopen the app."
+                let captureMsg = "Screen capture timed out. Grant Screen Recording to Machete in System Settings ▸ Privacy & Security, then reopen the app."
                 let answer: String
                 if self.directSignedIn {
                     let image = try await withTimeout(15, captureMsg) { try await ScreenCapture.captureDataURL() }

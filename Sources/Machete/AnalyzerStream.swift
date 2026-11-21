@@ -20,8 +20,8 @@ final class AnalyzerStream: @unchecked Sendable {
     private var converter: AVAudioConverter? // used only from the audio thread
     private var frames = 0, lastLogged = 0
     private var windowPeak: Float = 0
-    /// Diagnostics only (`defaults write local.gpt-helper debugAudio -bool YES`): what the analyzer hears,
-    /// saved to ~/Library/Logs/gpt-helper-<name>.caf, overwritten each recording.
+    /// Diagnostics only (`defaults write ar.com.machete debugAudio -bool YES`): what the analyzer hears,
+    /// saved to ~/Library/Logs/Machete-<name>.caf, overwritten each recording.
     private var debugFile: AVAudioFile?
     private var volatileCount = 0
 
@@ -59,7 +59,7 @@ final class AnalyzerStream: @unchecked Sendable {
 
         if UserDefaults.standard.bool(forKey: "debugAudio"), let format {
             let url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("Logs/gpt-helper-\(name.lowercased()).caf")
+                .appendingPathComponent("Logs/Machete-\(name.lowercased()).caf")
             try? FileManager.default.removeItem(at: url)
             debugFile = try? AVAudioFile(forWriting: url, settings: format.settings,
                                          commonFormat: format.commonFormat, interleaved: format.isInterleaved)

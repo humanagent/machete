@@ -19,7 +19,7 @@ final class HotKeys {
         let hkID = EventHotKeyID(signature: OSType(0x4750_5448), id: id) // 'GPTH'
         let status = RegisterEventHotKey(keyCode, modifiers, hkID, GetApplicationEventTarget(), 0, &ref)
         if status == noErr, let ref { refs.append(ref) } else {
-            NSLog("gpt-helper: failed to register hotkey \(keyCode) (\(status))")
+            NSLog("Machete: failed to register hotkey \(keyCode) (\(status))")
         }
     }
 

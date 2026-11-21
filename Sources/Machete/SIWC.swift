@@ -21,12 +21,12 @@ struct SIWCError: LocalizedError {
     var errorDescription: String? { message }
 }
 
-/// Stores credentials in ~/Library/Application Support/gpt-helper/siwc.json, readable only by this user (0600).
+/// Stores credentials in ~/Library/Application Support/Machete/siwc.json, readable only by this user (0600).
 /// (Avoids repeated Keychain prompts for a self-signed local build.)
 enum TokenStore {
     static var url: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("gpt-helper", isDirectory: true)
+            .appendingPathComponent("Machete", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
         return dir.appendingPathComponent("siwc.json")
@@ -99,7 +99,7 @@ actor SIWCAuth {
 
         let existing = savedClientID
         var items: [(String, String)] = [("client_id", existing ?? "dynamic_agent_client")]
-        if existing == nil { items.append(("agent_name_hint", "gpt-helper")) }
+        if existing == nil { items.append(("agent_name_hint", "Machete")) }
         items += [
             ("ext_agent_host_id", hostID),
             ("response_type", "code"),
@@ -236,7 +236,7 @@ final class LoopbackServer: @unchecked Sendable {
     private let lock = NSLock()
     private var result: Result<[String: String], Error>?
     private var waiter: CheckedContinuation<[String: String], Error>?
-    private let queue = DispatchQueue(label: "gpt-helper.loopback")
+    private let queue = DispatchQueue(label: "machete.loopback")
 
     func start(preferred: UInt16) async throws -> UInt16 {
         if let p = try? await listen(on: preferred) { return p }
@@ -309,7 +309,7 @@ final class LoopbackServer: @unchecked Sendable {
             for item in comps?.queryItems ?? [] { q[item.name] = item.value ?? "" }
             let ok = q["error"] == nil
             self.respond(c, status: "200 OK", body: ok
-                ? "<h2 style='font-family:-apple-system'>gpt-helper is connected to ChatGPT.</h2><p style='font-family:-apple-system'>You can close this tab.</p>"
+                ? "<h2 style='font-family:-apple-system'>Machete is connected to ChatGPT.</h2><p style='font-family:-apple-system'>You can close this tab.</p>"
                 : "<h2 style='font-family:-apple-system'>Sign-in was not completed.</h2>")
             self.deliver(.success(q))
         }
@@ -409,7 +409,7 @@ struct ResponsesClient {
     static func describe(code: String?, message: String?, status: Int) -> SIWCError {
         switch code {
         case "subscription_sharing_usage_limit_exceeded":
-            return SIWCError(message: "You've hit your ChatGPT plan's usage limit for gpt-helper for now.")
+            return SIWCError(message: "You've hit your ChatGPT plan's usage limit for Machete for now.")
         case "subscription_sharing_invalid_user":
             return SIWCError(message: "ChatGPT session is no longer valid. Sign in again.", needsSignIn: true)
         case "subscription_sharing_user_not_eligible":

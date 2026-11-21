@@ -3,7 +3,7 @@ import ScreenCaptureKit
 import UniformTypeIdentifiers
 
 enum ScreenCapture {
-    /// Captures the display under the mouse, excluding gpt-helper's own windows. Returns a PNG file URL.
+    /// Captures the display under the mouse, excluding Machete's own windows. Returns a PNG file URL.
     /// JPEG data URL of the screen under the mouse, sized for fast upload.
     static func captureDataURL(maxLongSide: Int = 1440) async throws -> String {
         let image = try await captureImage(maxLongSide: maxLongSide)
@@ -17,7 +17,7 @@ enum ScreenCapture {
     static func captureScreenUnderMouse(maxLongSide: Int = 1440) async throws -> URL {
         let image = try await captureImage(maxLongSide: maxLongSide)
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gpt-helper-\(UUID().uuidString).png")
+            .appendingPathComponent("machete-\(UUID().uuidString).png")
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
             throw CodexError(message: "Could not write screenshot.")
         }

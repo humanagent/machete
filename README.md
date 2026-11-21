@@ -1,4 +1,4 @@
-# gpt-helper
+# Machete
 
 A minimal, translucent macOS overlay that sees your screen, listens to your conversation, and answers using **your ChatGPT plan** via [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart).
 
@@ -25,9 +25,9 @@ A minimal, translucent macOS overlay that sees your screen, listens to your conv
 Requires macOS 14+ and Xcode command-line tools.
 
 ```sh
-./build.sh --install   # builds build/gpt-helper.app, copies it to /Applications and launches it
+./build.sh --install   # builds build/Machete.app, copies it to /Applications and launches it
 ```
 
 On first use, grant **Screen & System Audio Recording**, **Microphone** and **Speech Recognition** in System Settings ▸ Privacy & Security.
 
-`build.sh` signs with an Apple Development identity if you have one, otherwise with a local self-signed identity named `gpt-helper Local Signing` if present, otherwise ad-hoc. Ad-hoc builds lose macOS permissions on every rebuild.
+`build.sh` signs with an Apple Development identity if you have one, otherwise with a local self-signed identity named `Machete Code Signing` if present, otherwise ad-hoc. Ad-hoc builds lose macOS permissions on every rebuild.

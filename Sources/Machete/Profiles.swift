@@ -12,7 +12,7 @@ struct Profile: Codable, Identifiable, Hashable {
 enum ProfileStore {
     static var url: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("gpt-helper", isDirectory: true)
+            .appendingPathComponent("Machete", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("profiles.json")
     }
@@ -117,7 +117,7 @@ enum ProfileStore {
 
     static let defaults: [Profile] = [
         Profile(name: "General", instructions: """
-        You are gpt-helper, a real-time assistant on my Mac. You see a screenshot of my screen and, when available, a live transcript of my conversation ("Me" = my microphone, "Them" = the other people).
+        You are Machete, a real-time assistant on my Mac. You see a screenshot of my screen and, when available, a live transcript of my conversation ("Me" = my microphone, "Them" = the other people).
         For code, give complete working code with a one-line explanation of the approach and its complexity.
         """),
         Profile(name: "Coding Interview", instructions: """
@@ -155,7 +155,7 @@ final class ManageWindowController {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
                              styleMask: [.titled, .closable, .resizable, .miniaturizable],
                              backing: .buffered, defer: false)
-            w.title = "gpt-helper · Bots"
+            w.title = "Machete · Bots"
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: ManageView(state: state))
             w.center()

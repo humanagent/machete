@@ -34,7 +34,7 @@ final class CodexRunner {
         guard let codex = Self.resolveCodex() else {
             throw CodexError(message: "Codex CLI not found. Install it with `npm install -g @openai/codex`.")
         }
-        let workDir = FileManager.default.temporaryDirectory.appendingPathComponent("gpt-helper", isDirectory: true)
+        let workDir = FileManager.default.temporaryDirectory.appendingPathComponent("Machete", isDirectory: true)
         try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
         let outFile = workDir.appendingPathComponent("answer-\(UUID().uuidString).md")
 

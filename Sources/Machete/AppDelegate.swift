@@ -81,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "gpt-helper")
+        statusItem.button?.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Machete")
         rebuildMenu()
     }
 
@@ -137,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(item(state.loggedIn == true ? "Sign in with ChatGPT… (using Codex now)" : "Sign in with ChatGPT…", #selector(menuLogin)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Quit gpt-helper", #selector(menuQuit)))
+        menu.addItem(item("Quit Machete", #selector(menuQuit)))
         menu.delegate = self
         statusItem.menu = menu
     }

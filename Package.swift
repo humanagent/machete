@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "GPTHelper",
+    name: "Machete",
     platforms: [.macOS(.v14)],
     targets: [
         .executableTarget(
-            name: "GPTHelper",
-            path: "Sources/GPTHelper"
+            name: "Machete",
+            path: "Sources/Machete"
         )
     ]
 )

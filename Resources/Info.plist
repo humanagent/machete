@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>gpt-helper</string>
+    <string>Machete</string>
     <key>CFBundleDisplayName</key>
-    <string>gpt-helper</string>
+    <string>Machete</string>
     <key>CFBundleIdentifier</key>
-    <string>local.gpt-helper</string>
+    <string>ar.com.machete</string>
     <key>CFBundleExecutable</key>
-    <string>gpt-helper</string>
+    <string>Machete</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -23,10 +23,10 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>gpt-helper transcribes your microphone so it can answer with conversation context.</string>
+    <string>Machete transcribes your microphone so it can answer with conversation context.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>gpt-helper transcribes audio on-device to build a live transcript.</string>
+    <string>Machete transcribes audio on-device to build a live transcript.</string>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>gpt-helper reads your screen and system audio to answer questions about what you are looking at.</string>
+    <string>Machete reads your screen and system audio to answer questions about what you are looking at.</string>
 </dict>
 </plist>

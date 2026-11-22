@@ -12,7 +12,6 @@ function appData() {
 }
 
 const supportDir = path.join(appData(), 'Machete');
-const legacyDir = path.join(appData(), 'gpt-helper');
 const logFile = isMac ? path.join(os.homedir(), 'Library', 'Logs', 'Machete.log') : path.join(supportDir, 'Machete.log');
 
 function ensureDir(dir, mode) {
@@ -20,4 +19,4 @@ function ensureDir(dir, mode) {
   return dir;
 }
 
-module.exports = { isMac, supportDir, legacyDir, logFile, ensureDir };
+module.exports = { isMac, supportDir, logFile, ensureDir };

@@ -39,7 +39,7 @@ Grant **Screen & System Audio Recording**, **Microphone** and **Speech Recogniti
 - `src/renderer/`: the overlay and the Bots window.
 - `src/shared/strings.js`: prompts, default bots and presets.
 - `native/` → `machete-native`: a small Swift helper for what needs Apple frameworks: screen capture excluding Machete's windows (ScreenCaptureKit), transcription (SpeechAnalyzer / SFSpeechRecognizer, mic + system audio) and text extraction (PDFKit). It talks JSON lines over stdin/stdout.
-- Data: `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`; Chromium's data in `electron/`). Logs: `~/Library/Logs/Machete.log`. Data and settings from the old native app (`gpt-helper`) are imported on first run.
+- Data: `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`; Chromium's data in `electron/`). Logs: `~/Library/Logs/Machete.log`. Settings from the earlier native Machete build are imported on first run.
 
 ## Windows (next)
 Everything in `src/` is cross-platform except what `machete-native` provides:

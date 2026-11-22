@@ -27,7 +27,7 @@ let values = null;
 function readNativeDefaults() {
   if (!isMac) return {};
   const out = {};
-  for (const domain of ['local.gpt-helper', 'ar.com.machete']) { // later domain wins
+  for (const domain of ['ar.com.machete']) {
     for (const key of Object.keys(DEFAULTS)) {
       try {
         const raw = execFileSync('/usr/bin/defaults', ['read', domain, key], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();

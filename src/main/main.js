@@ -10,9 +10,6 @@ app.setName('Machete');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); return; }
 
-const { migrateLegacyData } = require('./migrate');
-migrateLegacyData();
-
 const log = require('./log');
 const native = require('./native');
 const { AppState } = require('./state');

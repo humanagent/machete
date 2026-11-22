@@ -134,9 +134,57 @@ describe('the serve protocol, against a stand-in helper', () => {
     expect((await withHelper('bare', (h) => Effect.flip(h.fingerprint))).message).toBe('Native helper error');
   });
 
+  test('permissions and the System Settings window come from one-shot runs', async () => {
+    const got = await withHelper('ok', (h) => Effect.all([h.permissionStatus, h.settingsWindow]));
+    expect(got).toEqual([
+      {
+        microphone: 'granted',
+        screen: 'denied',
+        accessibility: 'granted',
+        inputMonitoring: 'not-determined',
+      },
+      Option.some({ x: 10, y: 20, width: 700, height: 600 }),
+    ]);
+    expect(await withHelper('fail', (h) => h.settingsWindow)).toEqual(Option.none());
+  });
+
+  test('without the helper, permissions explain why', async () => {
+    const error = await Effect.runPromise(
+      Effect.service(NativeHelper).pipe(
+        Effect.flatMap((h) => Effect.flip(h.permissionStatus)),
+        Effect.provide(NativeHelper.layerFrom(Option.none()).pipe(Layer.provide(NodeServices.layer))),
+        Effect.scoped,
+      ),
+    );
+    expect(error.message).toContain('need the macOS helper');
+  });
+
   test('a reply of the wrong shape is an error, not a crash', async () => {
     expect((await withHelper('garbled', (h) => Effect.flip(h.fingerprint))).message).toBe(
       'fingerprint: unexpected reply',
     );
   });
 });
+
+// Real speech models: slow and they download on first use, so only on a developer Mac.
+describe.skipIf(Option.isNone(binary) || process.env['CI'] !== undefined)(
+  'real transcription (macOS 26)',
+  () => {
+    test('Latin American Spanish comes out word for word, punctuated', async () => {
+      const text = await Effect.runPromise(
+        withTempDir((dir) =>
+          Effect.promise(async () => {
+            const audio = join(dir, 'es.aiff');
+            await Bun.$`say -v Paulina -o ${audio} ${'Necesito que revises el contrato antes del viernes.'}`.quiet();
+            const exe = Option.getOrThrow(binary);
+            return (await Bun.$`${exe} transcribe ${audio} es-419`.quiet().text())
+              .split('\n')
+              .filter((l) => l !== '' && !l.startsWith('{'))
+              .join(' ');
+          }),
+        ),
+      );
+      expect(text).toBe('Necesito que revises el contrato antes del viernes.');
+    }, 60_000);
+  },
+);

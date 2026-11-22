@@ -1,10 +1,10 @@
 // Dictation: speak and the words are typed into the app you're in. Transcription only, no AI.
 // Started and finished with the right ⌘ key (tapped alone) or ⌥D; Esc or the pill's menu cancels.
 import { Context, Duration, Effect, Layer, Ref, Schedule, Stream } from 'effect';
-import { ExternalBrowser } from './ExternalBrowser';
 import type { DictationEvent } from '../../shared/ipc';
 import { AppState } from './AppState';
 import { NativeHelper } from './NativeHelper';
+import { PermissionsGuide } from './PermissionsGuide';
 
 /** The floating pill that shows where the words will go. Implemented by the Electron layer. */
 export class DictationPill extends Context.Service<
@@ -21,11 +21,6 @@ export class DictationPill extends Context.Service<
 
 export type DictationPhase = 'idle' | 'recording' | 'finishing';
 
-export const INPUT_MONITORING =
-  'To dictate with the right ⌘ key, turn Machete on in System Settings ▸ Privacy & Security ▸ Input Monitoring. ⌥D works meanwhile.';
-const INPUT_MONITORING_SETTINGS =
-  'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent';
-
 export interface DictationShape {
   readonly phase: Effect.Effect<DictationPhase>;
   readonly toggle: Effect.Effect<void>;
@@ -40,7 +35,7 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
       const helper = yield* NativeHelper;
       const pill = yield* DictationPill;
       const app = yield* AppState;
-      const browser = yield* ExternalBrowser;
+      const guide = yield* PermissionsGuide;
       const phase = yield* Ref.make<DictationPhase>('idle');
 
       const end = (delay: Duration.Input) =>
@@ -70,8 +65,8 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
         const front = yield* helper.frontmost.pipe(Effect.orElseSucceed(() => ({ name: '', icon: '' })));
         yield* pill.show(front.name, front.icon);
         yield* pill.captureEscape(cancel);
-        const { language } = yield* app.model;
-        yield* helper.dictateStart(language).pipe(
+        const { dictationLanguage } = yield* app.model;
+        yield* helper.dictateStart(dictationLanguage).pipe(
           Effect.tap(() => Effect.logInfo(`dictation: start (into ${front.name || '?'})`)),
           Effect.catch((e) => failed(e.message)),
         );
@@ -113,14 +108,12 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
         Effect.forkScoped,
       );
       if (helper.available) {
-        // The right ⌘ key needs Input Monitoring. Without it: say so once, open the right settings page,
-        // and keep trying, so it starts working as soon as the permission is granted.
+        // The right ⌘ key needs Input Monitoring. Without it: open the permissions guide once, and keep
+        // trying, so it starts working as soon as the permission is granted (⌥D works meanwhile).
         const explained = yield* Ref.make(false);
-        const explain = Effect.gen(function* () {
-          if (yield* Ref.getAndSet(explained, true)) return;
-          yield* app.showError(INPUT_MONITORING);
-          yield* browser.open(INPUT_MONITORING_SETTINGS);
-        });
+        const explain = Ref.getAndSet(explained, true).pipe(
+          Effect.flatMap((done) => (done ? Effect.void : guide.show)),
+        );
         yield* helper.watchRightCommand.pipe(
           Effect.tapError((e) => (e.message === 'input-monitoring' ? explain : Effect.void)),
           Effect.retry(Schedule.spaced(Duration.seconds(5))),

@@ -78,6 +78,7 @@ export interface AppModel {
   readonly profiles: ReadonlyArray<Profile>;
   readonly selectedProfileID: string;
   readonly language: Language;
+  readonly dictationLanguage: Language;
   readonly model: string;
   readonly models: ReadonlyArray<Model>;
   readonly autoAnswer: boolean;
@@ -163,6 +164,7 @@ export interface AppStateShape {
   readonly toggleListening: Effect.Effect<void>;
   readonly togglePause: Effect.Effect<void>;
   readonly setLanguage: (language: Language) => Effect.Effect<void>;
+  readonly setDictationLanguage: (language: Language) => Effect.Effect<void>;
   readonly setAutoAnswer: (on: boolean) => Effect.Effect<void>;
   // Bots
   readonly selectProfile: (id: string) => Effect.Effect<void>;
@@ -223,6 +225,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         profiles,
         selectedProfileID: saved.profileID ?? profiles[0]?.id ?? newProfileID(),
         language: saved.language,
+        dictationLanguage: saved.dictationLanguage,
         model: saved.model,
         models: DEFAULT_MODELS,
         autoAnswer: saved.autoAnswer,
@@ -740,6 +743,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         toggleFollow: get.pipe(Effect.flatMap((m) => setFollow(!m.followMode))),
         toggleListening,
         togglePause,
+        setDictationLanguage: (dictationLanguage) =>
+          update((s) => ({ ...s, dictationLanguage })).pipe(Effect.andThen(persist({ dictationLanguage }))),
         setLanguage: (language) =>
           Effect.gen(function* () {
             yield* update((s) => ({ ...s, language }));

@@ -6,4 +6,6 @@ export const Channels = {
   botsRequest: 'bots:request',
   dictationEvent: 'dictation:event',
   dictationCommand: 'dictation:command',
+  permissionsState: 'permissions:state',
+  permissionsCommand: 'permissions:command',
 } as const;

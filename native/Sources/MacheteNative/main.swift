@@ -41,6 +41,37 @@ case "icon":
     do { try SymbolIcon.export(name: args[2], pointSize: pt, scale: scale, weight: weight, to: args[4]) } catch { fail("\(error)") }
     exit(0)
 
+case "transcribe":
+    // Same engine as the app, fed from a file: `transcribe <audio> <locale>`. For tests and tuning.
+    guard args.count > 3 else { fail("usage: machete-native transcribe <audio> <locale>") }
+    let url = URL(fileURLWithPath: args[2])
+    let locale = Locale(identifier: args[3])
+    Task { @MainActor in
+        guard #available(macOS 26.0, *) else { fail("transcribe needs macOS 26") }
+        do { print(try await FileTranscription.run(url, locale: locale)); exit(0) } catch { fail("\(error)") }
+    }
+    dispatchMain()
+
+case "permissions":
+    // One-shot, so it sees changes made in System Settings while the app runs (a long-lived process caches them).
+    let mic = AVCaptureDevice.authorizationStatus(for: .audio)
+    let status: [String: Any] = [
+        "microphone": mic == .authorized ? "granted" : (mic == .notDetermined ? "not-determined" : "denied"),
+        "screen": CGPreflightScreenCaptureAccess() ? "granted" : "denied",
+        "inputMonitoring": CGPreflightListenEventAccess() ? "granted" : "denied",
+        "accessibility": AXIsProcessTrusted() ? "granted" : "denied",
+    ]
+    FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: status))
+    exit(0)
+
+case "settings-window":
+    // Bounds of the frontmost System Settings window (top-left origin, points), so the guide can sit beside it.
+    let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    let win = list.first { ($0[kCGWindowOwnerName as String] as? String) == "System Settings" && ($0[kCGWindowLayer as String] as? Int) == 0 }
+    guard let b = win?[kCGWindowBounds as String] as? [String: Any] else { exit(2) }
+    FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: b))
+    exit(0)
+
 case "serve":
     if let i = args.firstIndex(of: "--exclude-pid"), i + 1 < args.count, let pid = pid_t(args[i + 1]) {
         Capture.excludedPIDs.insert(pid)
@@ -52,7 +83,7 @@ case "serve":
     app.run()
 
 default:
-    fail("usage: machete-native serve|extract|icon")
+    fail("usage: machete-native serve|extract|icon|transcribe|permissions|settings-window")
 }
 
 @MainActor

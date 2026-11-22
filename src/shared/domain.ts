@@ -45,11 +45,12 @@ export type ProfileFields = typeof ProfileFields.Type;
 export const Model = Schema.Struct({ slug: Schema.String, name: Schema.String });
 export type Model = typeof Model.Type;
 
-export const Language = Schema.Literals(['en-US', 'es-ES']);
+export const Language = Schema.Literals(['en-US', 'es-ES', 'es-419']);
 export type Language = typeof Language.Type;
 export const Languages: ReadonlyArray<readonly [Language, string]> = [
   ['en-US', 'English'],
-  ['es-ES', 'Español'],
+  ['es-419', 'Español (Latinoamérica)'],
+  ['es-ES', 'Español (España)'],
 ];
 
 /** Everything the overlay renders. The renderer is a pure view of this value. */

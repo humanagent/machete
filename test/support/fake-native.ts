@@ -20,6 +20,21 @@ const replies: Record<string, Record<string, unknown>> = {
 };
 const mode = process.env['FAKE_NATIVE'] ?? 'ok';
 
+const command = process.argv[2];
+if (command === 'permissions') {
+  out({
+    microphone: 'granted',
+    screen: 'denied',
+    accessibility: 'granted',
+    inputMonitoring: 'not-determined',
+  });
+  process.exit(0);
+}
+if (command === 'settings-window') {
+  if (mode === 'ok') out({ X: 10, Y: 20, Width: 700, Height: 600 });
+  process.exit(mode === 'ok' ? 0 : 2);
+}
+
 process.stderr.write('fake helper up\n');
 for await (const line of createInterface({ input: process.stdin })) {
   const { id, cmd } = JSON.parse(line) as { id?: number; cmd: string };

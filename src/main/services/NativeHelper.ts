@@ -18,6 +18,7 @@ import {
 } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Language, Speaker } from '../../shared/domain';
+import { PermissionsSnapshot, type Rect } from '../../shared/permissions';
 import { HelperError } from '../errors';
 
 // MARK: Protocol
@@ -72,6 +73,12 @@ const Frontmost = Schema.Struct({
   icon: Schema.optional(Schema.String),
 });
 const Nothing = Schema.Struct({});
+const SettingsBounds = Schema.Struct({
+  X: Schema.Number,
+  Y: Schema.Number,
+  Width: Schema.Number,
+  Height: Schema.Number,
+});
 const Permissions = Schema.Struct({
   microphone: Schema.Boolean,
   speech: Schema.Boolean,
@@ -98,6 +105,10 @@ export interface NativeHelperShape {
   readonly watchRightCommand: Effect.Effect<void, HelperError>;
   /** Asks macOS for every permission Machete uses; returns which ones are granted. */
   readonly requestPermissions: Effect.Effect<Readonly<Record<string, boolean>>, HelperError>;
+  /** What macOS allows right now (a fresh process each time: the long-lived helper caches these). */
+  readonly permissionStatus: Effect.Effect<PermissionsSnapshot, HelperError>;
+  /** The frontmost System Settings window, if one is open. */
+  readonly settingsWindow: Effect.Effect<Option.Option<Rect>>;
   /** Text of a PDF / Word / RTF / HTML / text file; None when it can't be read. */
   readonly extractText: (file: string) => Effect.Effect<Option.Option<string>>;
 }
@@ -251,6 +262,20 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
               ),
           });
 
+        /** Runs a one-shot command of the helper and decodes its JSON output. */
+        const oneShot = <S extends Schema.Top>(
+          args: ReadonlyArray<string>,
+          schema: S,
+        ): Effect.Effect<S['Type'], HelperError> =>
+          Option.match(binary, {
+            onNone: () => Effect.fail(unavailable),
+            onSome: (exe) =>
+              spawner.string(ChildProcess.make(exe, [...args])).pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(schema))),
+                Effect.mapError(() => new HelperError({ message: `${args[0]}: no answer from the helper` })),
+              ) as Effect.Effect<S['Type'], HelperError>,
+          });
+
         return {
           available: Option.isSome(binary),
           subscribe: PubSub.subscribe(events).pipe(Effect.map(Stream.fromSubscription)),
@@ -280,6 +305,11 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
               inputMonitoring,
               accessibility,
             })),
+          ),
+          permissionStatus: oneShot(['permissions'], PermissionsSnapshot),
+          settingsWindow: oneShot(['settings-window'], SettingsBounds).pipe(
+            Effect.map((b) => ({ x: b.X, y: b.Y, width: b.Width, height: b.Height })),
+            Effect.option,
           ),
           extractText,
         } satisfies NativeHelperShape;

@@ -82,6 +82,13 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
         inputMonitoring: true,
         accessibility: true,
       }),
+      permissionStatus: Effect.succeed({
+        microphone: 'granted',
+        screen: 'granted',
+        accessibility: 'granted',
+        inputMonitoring: 'granted',
+      }),
+      settingsWindow: Effect.succeedNone,
       extractText: (file) =>
         Effect.promise(() => readFile(file, 'utf8').then(Option.some, () => Option.none<string>())),
       ...overrides,

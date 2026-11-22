@@ -88,8 +88,7 @@ class NativeHelper extends EventEmitter {
   }
 
   // Screen
-  async captureDataURL(max = 1440) { return (await this.request('capture', { format: 'jpeg', max })).dataURL; }
-  async capturePNG(max = 1440) { return (await this.request('capture', { format: 'png', max })).path; }
+  async captureDataURL(max = 1440) { return (await this.request('capture', { max })).dataURL; }
   async fingerprint() { return (await this.request('fingerprint')).pixels; }
   async permissions() { return this.request('permissions'); }
 

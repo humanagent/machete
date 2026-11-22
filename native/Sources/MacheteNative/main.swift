@@ -8,7 +8,7 @@ import AVFoundation
 //   machete-native icon <symbol> <pt> <out.png> [scale] [weight]
 //
 // serve commands (one JSON object per line):
-//   {"id":1,"cmd":"capture","format":"jpeg"|"png","max":1440}   -> {"id":1,"ok":true,"dataURL"|"path":…}
+//   {"id":1,"cmd":"capture","max":1440}   -> {"id":1,"ok":true,"dataURL":…}
 //   {"id":2,"cmd":"fingerprint"}                                 -> {"id":2,"ok":true,"pixels":[…]}
 //   {"id":3,"cmd":"listen.start","locale":"en-US"}               -> {"id":3,"ok":true}; then events
 //   {"cmd":"listen.pause","paused":true} / {"cmd":"listen.stop"}
@@ -82,12 +82,7 @@ final class Server {
         case "capture":
             let max = cmd["max"] as? Int ?? 1440
             do {
-                if (cmd["format"] as? String) == "png" {
-                    let url = try await Capture.pngFile(maxLongSide: max)
-                    reply(id, ["ok": true, "path": url.path])
-                } else {
-                    reply(id, ["ok": true, "dataURL": try await Capture.dataURL(maxLongSide: max)])
-                }
+                reply(id, ["ok": true, "dataURL": try await Capture.dataURL(maxLongSide: max)])
             } catch {
                 reply(id, ["ok": false, "error": error.localizedDescription])
             }

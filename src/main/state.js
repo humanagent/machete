@@ -1,6 +1,5 @@
 'use strict';
 // AppState.swift, ported. Owns everything the overlay shows; the renderer is a pure view of snapshot().
-const fs = require('fs');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const S = require('../shared/strings');
@@ -9,7 +8,6 @@ const settings = require('./settings');
 const profileStore = require('./profiles');
 const auth = require('./auth');
 const responses = require('./responses');
-const codex = require('./codex');
 const native = require('./native');
 const log = require('./log');
 
@@ -150,7 +148,6 @@ class AppState extends EventEmitter {
     const quiet = isFollow || !reveal;
     if (!quiet) { this.showPanel(); this.cardOpen = true; this.collapsed = false; }
     this.cancelAsk();
-    codex.cancel();
     this.errorText = null;
     this.isThinking = !isFollow;
     this.followBusy = isFollow;
@@ -184,13 +181,7 @@ class AppState extends EventEmitter {
             },
           }), () => abort.abort());
         } else {
-          const image = await withTimeout(15, CAPTURE_MSG, native.capturePNG());
-          if (cancelled()) { skipCleanup = true; return; }
-          this.status = 'Asking ChatGPT (via Codex)…'; this.changed();
-          try {
-            answer = await withTimeout(150, 'ChatGPT took too long to answer. Try again.',
-              codex.run(instructions + '\n\n' + prompt, image), () => codex.cancel());
-          } finally { fs.rm(image, () => {}); }
+          throw new auth.SIWCError('Sign in with ChatGPT first.', true);
         }
         if (cancelled()) { skipCleanup = true; return; }
         const trimmed = answer.trim();
@@ -235,7 +226,6 @@ class AppState extends EventEmitter {
   reset() {
     this.cancelAsk();
     this.followBusy = false;
-    codex.cancel();
     this.isThinking = false;
     this.exchanges = [];
     this.errorText = null;
@@ -440,10 +430,8 @@ class AppState extends EventEmitter {
   }
 
   async refreshLoggedIn() {
-    if (this.directSignedIn) { this.loggedIn = true; this.changed(); return; }
-    const ok = await codex.isLoggedIn();
-    this.loggedIn = ok;
-    if (!ok) this.cardOpen = true;
+    this.loggedIn = this.directSignedIn;
+    if (!this.directSignedIn) this.cardOpen = true;
     this.changed();
     this.emit('menu');
   }

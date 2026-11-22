@@ -1,5 +1,9 @@
-.build/
-build/
+node_modules/
+dist/
+native/.build/
+native/bin/
 .DS_Store
-*.xcodeproj/xcuserdata/
+assets/icons/
+assets/trayTemplate*.png
+.build/
 .swiftpm/

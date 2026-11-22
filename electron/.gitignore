@@ -1,7 +1,0 @@
-node_modules/
-dist/
-native/.build/
-native/bin/
-.DS_Store
-assets/icons/
-assets/trayTemplate*.png

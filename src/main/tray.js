@@ -28,7 +28,7 @@ function createTray(state, actions) {
     if (state.directSignedIn) {
       template.push({ label: 'Signed in with ChatGPT ✓', enabled: false }, { label: 'Sign out', click: () => state.signOut() });
     } else {
-      template.push({ label: state.loggedIn === true ? 'Sign in with ChatGPT… (using Codex now)' : 'Sign in with ChatGPT…', click: () => state.login() });
+      template.push({ label: 'Sign in with ChatGPT…', click: () => state.login() });
     }
     template.push({ type: 'separator' }, { label: 'Quit Machete', click: () => app.quit() });
     tray.setContextMenu(Menu.buildFromTemplate(template));

@@ -27,7 +27,7 @@
       "target": ["dmg"],
       "identity": null,
       "hardenedRuntime": false,
-      "entitlements": "../Resources/Machete.entitlements",
+      "entitlements": "scripts/entitlements.mac.plist",
       "extendInfo": {
         "LSUIElement": true,
         "NSMicrophoneUsageDescription": "Machete transcribes your microphone so it can answer with conversation context.",

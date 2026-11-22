@@ -16,7 +16,7 @@
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "verify": "bun run lint && bun run test",
-    "pack": "bun run native && bun scripts/build.ts --production && electron-builder --mac --dir -c.mac.identity=- -c.mac.notarize=false -c.mac.entitlements=scripts/entitlements.adhoc.plist -c.mac.entitlementsInherit=scripts/entitlements.adhoc.plist",
+    "pack": "bun run native && bun scripts/build.ts --production && electron-builder --mac --dir -c.mac.identity=- -c.mac.notarize=false -c.mac.entitlements=scripts/entitlements.adhoc.plist -c.mac.entitlementsInherit=scripts/entitlements.adhoc.plist && bun scripts/sign-local.ts",
     "dist": "bun run native && bun scripts/build.ts --production && electron-builder --mac --publish never"
   },
   "devDependencies": {

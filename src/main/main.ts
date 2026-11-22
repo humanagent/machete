@@ -52,7 +52,6 @@ const Startup = Layer.effectDiscard(
     const state = yield* AppState;
     const overlay = yield* OverlayWindow;
     yield* Effect.logInfo(`app: launch electron=${process.versions.electron}`);
-    yield* state.openPanel;
     yield* overlay.show;
     yield* state.checkLogin;
     const permissions = yield* PermissionsGuide;

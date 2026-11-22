@@ -18,6 +18,7 @@ const { createTray } = require('./tray');
 const { registerHotKeys } = require('./hotkeys');
 const { showManageWindow, manageWindow, destroyManageWindow, setQuitting } = require('./manage');
 const contextFiles = require('./context-files');
+const { Dictation } = require('./dictation');
 
 const state = new AppState();
 const overlay = new Overlay(state);
@@ -47,7 +48,9 @@ app.whenReady().then(() => {
     state.changed();
   });
 
-  tray = createTray(state, { togglePanel: () => overlay.toggle() });
+  const dictation = new Dictation(state);
+  dictation.init();
+  tray = createTray(state, { togglePanel: () => overlay.toggle(), dictate: () => dictation.toggle() });
   registerHotKeys(state, overlay);
   state.checkLogin();
   if (process.argv.includes('--debug-listen')) state.startListening();

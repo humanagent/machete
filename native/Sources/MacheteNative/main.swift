@@ -12,6 +12,11 @@ import AVFoundation
 //   {"id":2,"cmd":"fingerprint"}                                 -> {"id":2,"ok":true,"pixels":[…]}
 //   {"id":3,"cmd":"listen.start","locale":"en-US"}               -> {"id":3,"ok":true}; then events
 //   {"cmd":"listen.pause","paused":true} / {"cmd":"listen.stop"}
+//   {"id":4,"cmd":"dictate.start","locale":"es-AR"} -> {"id":4,"ok":true}; then {"type":"dictation.level","level":0…1}
+//   {"id":5,"cmd":"dictate.stop","cancel":false}     -> {"id":5,"ok":true,"text":…} (mic only, no AI)
+//   {"id":6,"cmd":"frontmost"}                       -> {"id":6,"ok":true,"name":…,"icon":dataURL}
+//   {"id":7,"cmd":"paste","text":…}                  -> {"id":7,"ok":true|false} (types into the focused app)
+//   {"id":8,"cmd":"rightcmd.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightcmd"} on each lone right-⌘ tap
 // events: {"type":"partial"|"commit","speaker":"me"|"them","text":…}, {"type":"error","message":…}, {"type":"log",…}
 
 let args = CommandLine.arguments
@@ -53,6 +58,10 @@ default:
 final class Server {
     static let shared = Server()
     private var transcriber: Transcriber?
+    private var dictation: Transcriber?
+    private var dictationText: [String] = []
+    private var dictationPartial = ""
+    private var lastLevelAt = Date.distantPast
 
     nonisolated func run() {
         // Read stdin on a background thread; handle each command on the main actor.
@@ -121,6 +130,48 @@ final class Server {
             let mic = AVCaptureDevice.authorizationStatus(for: .audio)
             reply(id, ["ok": true, "microphone": mic == .authorized ? "granted" : (mic == .notDetermined ? "not-determined" : "denied"),
                        "screen": CGPreflightScreenCaptureAccess() ? "granted" : "denied"])
+
+        case "dictate.start":
+            await dictation?.stop()
+            dictationText = []; dictationPartial = ""
+            let d = Transcriber(locale: Locale(identifier: cmd["locale"] as? String ?? "en-US"), includeSystem: false)
+            d.onPartial = { [weak self] _, text in self?.dictationPartial = text }
+            d.onCommit = { [weak self] _, text in self?.dictationText.append(text); self?.dictationPartial = "" }
+            d.onError = { message in Out.emit(["type": "dictation.error", "message": message]) }
+            d.onLevel = { [weak self] level in
+                Task { @MainActor in
+                    guard let self, Date().timeIntervalSince(self.lastLevelAt) > 0.06 else { return }
+                    self.lastLevelAt = Date()
+                    Out.emit(["type": "dictation.level", "level": level])
+                }
+            }
+            dictation = d
+            do { try await d.start(); reply(id, ["ok": true]) } catch {
+                dictation = nil
+                reply(id, ["ok": false, "error": error.localizedDescription])
+            }
+
+        case "dictate.stop":
+            let d = dictation
+            dictation = nil
+            await d?.stop() // waits for the last words
+            var parts = dictationText
+            if !dictationPartial.isEmpty { parts.append(dictationPartial) }
+            dictationText = []; dictationPartial = ""
+            let text = (cmd["cancel"] as? Bool ?? false) ? "" : parts.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            reply(id, ["ok": true, "text": text])
+
+        case "frontmost":
+            var r = Dictation.frontmost(); r["ok"] = true
+            reply(id, r)
+
+        case "paste":
+            let ok = await Dictation.paste(cmd["text"] as? String ?? "")
+            reply(id, ok ? ["ok": true] : ["ok": false, "error": "Machete needs Accessibility permission to type into other apps."])
+
+        case "rightcmd.watch":
+            let ok = Dictation.watchRightCommand { Out.emit(["type": "rightcmd"]) }
+            reply(id, ok ? ["ok": true] : ["ok": false, "error": "Input Monitoring permission needed for the right ⌘ key."])
 
         case "ping":
             reply(id, ["ok": true])

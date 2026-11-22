@@ -20,6 +20,8 @@ function createTray(state, actions) {
       radio('Auto-answer questions', state.autoAnswer, () => state.setAutoAnswer(!state.autoAnswer)),
       { label: 'Clear  (⌥R)', click: () => state.reset() },
       { type: 'separator' },
+      { label: 'Dictate  (right ⌘ or ⌥D)', click: () => actions.dictate?.() },
+      { type: 'separator' },
       { label: 'Transcription language', submenu: LANGUAGES.map(([code, name]) => radio(name, state.language === code, () => state.setLanguage(code))) },
       { label: 'Transparency', submenu: [[0.35, 'More see-through'], [0.55, 'Balanced'], [0.8, 'Solid']]
         .map(([v, name]) => radio(name, Math.abs(state.glassOpacity - v) < 0.01, () => state.setGlassOpacity(v))) },

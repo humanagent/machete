@@ -97,6 +97,13 @@ class NativeHelper extends EventEmitter {
   setPaused(paused) { this.send('listen.pause', { paused }); }
   stopListening() { return this.request('listen.stop', {}, 60_000).catch(() => {}); }
 
+  // Dictation (mic only, no AI): typed into the focused app.
+  dictateStart(locale) { return this.request('dictate.start', { locale }, 60_000); }
+  async dictateStop(cancel = false) { return (await this.request('dictate.stop', { cancel }, 60_000)).text || ''; }
+  frontmost() { return this.request('frontmost'); }
+  paste(text) { return this.request('paste', { text }, 10_000); }
+  watchRightCommand() { return this.request('rightcmd.watch'); }
+
   /** Text of a PDF / Word / RTF / HTML / text file (PDFKit and AppKit, like the native app). */
   extractText(file) {
     const exe = helperPath();

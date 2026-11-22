@@ -3,7 +3,7 @@
 
 :root {
   /* Neutral gray glass, same transparency as before. */
-  --bar-tint: rgba(74, 78, 84, 0.92);
+  --bar-tint: rgba(74, 78, 84, 0.78);
   --body-tint-rgb: 20, 22, 25;
   --body-alpha: 0.775;                           /* 0.5 + 0.5 * glassOpacity, set from state */
   --pad: 8px;

@@ -9,6 +9,8 @@ final class Transcriber {
     var onPartial: ((Speaker, String) -> Void)?
     var onCommit: ((Speaker, String) -> Void)?
     var onError: ((String) -> Void)?
+    /// Microphone level 0…1, for the dictation pill's waveform.
+    var onLevel: ((Float) -> Void)?
 
     private let locale: Locale
     private var me: SpeechStream?
@@ -18,7 +20,20 @@ final class Transcriber {
     private let mic = MicCapture()
     private let system = SystemAudioCapture()
 
-    init(locale: Locale) { self.locale = locale }
+    /// `includeSystem: false` transcribes only the microphone (dictation).
+    private let includeSystem: Bool
+    init(locale: Locale, includeSystem: Bool = true) { self.locale = locale; self.includeSystem = includeSystem }
+
+    private func micSink(_ append: @escaping (AVAudioPCMBuffer) -> Void) -> (AVAudioPCMBuffer) -> Void {
+        { [weak self] buf in
+            append(buf)
+            guard let level = self?.onLevel, let ch = buf.floatChannelData?[0] else { return }
+            let n = Int(buf.frameLength); guard n > 0 else { return }
+            var sum: Float = 0
+            for i in 0..<n { sum += ch[i] * ch[i] }
+            level(min(1, sqrt(sum / Float(n)) * 8))
+        }
+    }
 
     func start() async throws {
         Log.write("listen: start locale=\(locale.identifier)")
@@ -26,15 +41,17 @@ final class Transcriber {
         Log.write("listen: micAllowed=\(micAllowed)")
 
         if #available(macOS 26.0, *) {
-            let them = AnalyzerStream(locale: locale, name: "Them")
-            them.onCommit = { [weak self] t in self?.onCommit?(.them, t) }
-            them.onPartial = { [weak self] t in self?.onPartial?(.them, t) }
-            try await them.start()
-            them26 = them
-            system.sink = { [weak them] buf in them?.append(buf) }
-            do { try await system.start(); Log.write("listen: system audio started") } catch {
-                Log.write("listen: system audio FAILED \(error)")
-                onError?("System audio unavailable (grant Screen & System Audio Recording): \(error.localizedDescription)")
+            if includeSystem {
+                let them = AnalyzerStream(locale: locale, name: "Them")
+                them.onCommit = { [weak self] t in self?.onCommit?(.them, t) }
+                them.onPartial = { [weak self] t in self?.onPartial?(.them, t) }
+                try await them.start()
+                them26 = them
+                system.sink = { [weak them] buf in them?.append(buf) }
+                do { try await system.start(); Log.write("listen: system audio started") } catch {
+                    Log.write("listen: system audio FAILED \(error)")
+                    onError?("System audio unavailable (grant Screen & System Audio Recording): \(error.localizedDescription)")
+                }
             }
             if micAllowed {
                 let me = AnalyzerStream(locale: locale, name: "Me")
@@ -42,12 +59,14 @@ final class Transcriber {
                 me.onPartial = { [weak self] t in self?.onPartial?(.me, t) }
                 try await me.start()
                 me26 = me
-                do { try mic.start { [weak me] buf in me?.append(buf) }; Log.write("listen: mic started") } catch {
+                do { try mic.start(micSink { [weak me] buf in me?.append(buf) }); Log.write("listen: mic started") } catch {
                     Log.write("listen: mic FAILED \(error)")
                     onError?("Microphone unavailable: \(error.localizedDescription)")
                 }
-            } else {
+            } else if includeSystem {
                 onError?("Microphone permission denied — only system audio will be transcribed.")
+            } else {
+                throw HelperError(message: "Microphone permission denied. Enable it in System Settings ▸ Privacy & Security.")
             }
             return
         }
@@ -55,18 +74,20 @@ final class Transcriber {
         guard await Self.requestSpeechAuth() else {
             throw HelperError(message: "Speech Recognition permission denied. Enable it in System Settings ▸ Privacy & Security.")
         }
-        let them = makeStream(.them)
-        self.them = them
-        them.start()
-        system.sink = { [weak them] buf in them?.append(buf) }
-        do { try await system.start() } catch {
-            onError?("System audio unavailable (grant Screen Recording permission): \(error.localizedDescription)")
+        if includeSystem {
+            let them = makeStream(.them)
+            self.them = them
+            them.start()
+            system.sink = { [weak them] buf in them?.append(buf) }
+            do { try await system.start() } catch {
+                onError?("System audio unavailable (grant Screen Recording permission): \(error.localizedDescription)")
+            }
         }
         if micAllowed {
             let me = makeStream(.me)
             self.me = me
             me.start()
-            do { try mic.start { [weak me] buf in me?.append(buf) } } catch {
+            do { try mic.start(micSink { [weak me] buf in me?.append(buf) }) } catch {
                 onError?("Microphone unavailable: \(error.localizedDescription)")
             }
         }

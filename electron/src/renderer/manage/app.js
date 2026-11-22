@@ -17,12 +17,15 @@ function render() {
   const list = $('list');
   list.innerHTML = '';
   for (const p of profiles) {
+    // A real button per row, so the row can be picked with the keyboard and accessibility tools (like a native List).
     const li = document.createElement('li');
-    li.setAttribute('role', 'option');
     li.className = p.id === selection ? 'sel' : '';
-    li.innerHTML = '<span class="n"></span>' + (p.id === selectedProfileID ? '<span class="check">✓</span>' : '');
+    li.innerHTML = '<button type="button" class="row"><span class="n"></span>'
+      + (p.id === selectedProfileID ? '<span class="check">✓</span>' : '') + '</button>';
+    const row = li.querySelector('.row');
     li.querySelector('.n').textContent = p.name === '' ? 'Untitled' : p.name;
-    li.onclick = () => { flushSaves(); selection = p.id; render(); };
+    row.setAttribute('aria-pressed', String(p.id === selection));
+    row.onclick = () => { flushSaves(); selection = p.id; render(); };
     list.appendChild(li);
   }
   $('remove').disabled = selection == null || profiles.length <= 1;

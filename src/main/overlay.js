@@ -4,7 +4,7 @@
 const path = require('path');
 const { BrowserWindow, screen, shell } = require('electron');
 
-const PAD = 8; // SwiftUI .padding(8) around the panel
+const PAD = 8; // margin around the panel
 const log = require('./log');
 const DEBUG = process.env.MACHETE_DEBUG === '1';
 
@@ -50,7 +50,7 @@ class Overlay {
     win.setAlwaysOnTop(true, 'status');
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     win.setContentProtection(!this.state.visibleInCapture);
-    win.loadFile(path.join(__dirname, '..', 'renderer', 'overlay', 'index.html'));
+    win.loadFile(path.join(__dirname, '..', 'renderer', 'overlay', 'index.html'), { query: { pad: String(PAD) } });
     // Links in answers open in the browser, never inside the panel.
     win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) shell.openExternal(url); return { action: 'deny' }; });
     win.webContents.on('will-navigate', (e, url) => { e.preventDefault(); if (/^https?:/i.test(url)) shell.openExternal(url); });

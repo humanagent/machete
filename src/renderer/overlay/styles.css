@@ -2,9 +2,11 @@
 @font-face { font-family: "Inter"; src: url("../../../assets/InterVariable.ttf") format("truetype"); font-weight: 100 900; }
 
 :root {
-  --bar-tint: rgba(73, 88, 100, 0.92);          /* Glass(opacity: 0.84, tint: (0.287, 0.345, 0.393)) */
-  --body-tint-rgb: 27, 38, 46;                   /* Glass default tint (0.106, 0.149, 0.180) */
+  /* Neutral gray glass, same transparency as before. */
+  --bar-tint: rgba(74, 78, 84, 0.92);
+  --body-tint-rgb: 20, 22, 25;
   --body-alpha: 0.775;                           /* 0.5 + 0.5 * glassOpacity, set from state */
+  --pad: 8px;
 }
 
 * { box-sizing: border-box; }
@@ -13,7 +15,7 @@ body { font-family: "Inter", -apple-system, system-ui, sans-serif; color: #fff; 
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; -webkit-app-region: no-drag; }
 [hidden] { display: none !important; }
 
-.panel { margin: 8px; width: 640px; border-radius: 16px; overflow: hidden; position: relative; }
+.panel { margin: var(--pad); width: 640px; border-radius: 16px; overflow: hidden; position: relative; }
 .panel::after { content: ""; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.10); z-index: 5; }
 
 /* MARK: Command bar */
@@ -76,7 +78,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .code { border-radius: 8px; background: rgba(0, 0, 0, 0.35); overflow-x: auto; }
 .code::-webkit-scrollbar { display: none; }
 .code pre { margin: 0; padding: 10px; font: 12.5px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: rgba(255, 255, 255, 0.92); user-select: text; }
-.copy { color: rgba(255, 255, 255, 0.45); }
+.copy { align-self: flex-start; color: rgba(255, 255, 255, 0.45); }
 .copy:hover { color: rgba(255, 255, 255, 0.7); }
 
 .thinking { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: rgba(255, 255, 255, 0.55); }

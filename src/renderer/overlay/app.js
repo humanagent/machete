@@ -6,7 +6,8 @@ const $ = (id) => document.getElementById(id);
 const esc = Markdown.escapeHTML;
 
 const BAR = 58;
-const PAD = 8;
+const PAD = Number(new URLSearchParams(location.search).get('pad') ?? 8);
+document.documentElement.style.setProperty('--pad', PAD + 'px');
 
 let s = null;                 // latest snapshot
 let bodyMounted = false;      // window keeps room for the body

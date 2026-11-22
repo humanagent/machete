@@ -48,4 +48,6 @@ for await (const line of createInterface({ input: process.stdin })) {
   else if (mode === 'bare') out({ id, ok: false });
   else if (mode === 'garbled') out({ id, ok: true, dataURL: 7, pixels: 'nope', text: 1 });
   else out({ id, ok: true, ...(replies[cmd] ?? {}) });
+  // FAKE_NATIVE_CRASH=1: dies after its first reply, to test that Machete restarts it.
+  if (process.env['FAKE_NATIVE_CRASH'] === '1') process.exit(3);
 }

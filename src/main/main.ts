@@ -85,7 +85,15 @@ if (!app.requestSingleInstanceLock()) {
       if (stopping) return;
       stopping = true;
       event.preventDefault();
-      void Effect.runPromise(Fiber.interrupt(program)).finally(() => app.exit(0));
+      // Finalizers get a few seconds (the helper finishes transcribing); quitting must never hang on one.
+      void Effect.runPromise(
+        Fiber.interrupt(program).pipe(
+          Effect.timeoutOrElse({
+            duration: '3 seconds',
+            orElse: () => Effect.sync(() => process.stderr.write('Machete: shutdown timed out\n')),
+          }),
+        ),
+      ).finally(() => app.exit(0));
     });
     program.addObserver((exit) => {
       if (Exit.isFailure(exit) && !stopping) {

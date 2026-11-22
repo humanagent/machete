@@ -163,6 +163,16 @@ export class OverlayWindow extends Context.Service<OverlayWindow, OverlayWindowS
         ),
       );
 
+      /** Window position when a drag started. */
+      const dragOrigin = yield* Ref.make<readonly [number, number]>([0, 0]);
+      const dragStart = Effect.sync(() => win.getPosition()).pipe(
+        Effect.flatMap(([x, y]) => Ref.set(dragOrigin, [x ?? 0, y ?? 0] as const)),
+      );
+      const dragMove = (dx: number, dy: number) =>
+        Ref.get(dragOrigin).pipe(
+          Effect.map(([x, y]) => win.setPosition(Math.round(x + dx), Math.round(y + dy))),
+        );
+
       const botsMenu = (x: number, y: number) =>
         Effect.gen(function* () {
           const m = yield* app.model;
@@ -179,6 +189,8 @@ export class OverlayWindow extends Context.Service<OverlayWindow, OverlayWindowS
       const handle = (command: OverlayCommand) =>
         OverlayCommand.match(command, {
           Layout: ({ width, height }) => layout(width, height),
+          DragStart: () => dragStart,
+          DragMove: ({ dx, dy }) => dragMove(dx, dy),
           SetQuestion: ({ question }) => app.setQuestion(question),
           Ask: ({ question }) => app.setQuestion(question).pipe(Effect.andThen(app.ask())),
           Collapse: () => app.collapseToggle,

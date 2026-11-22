@@ -1,6 +1,6 @@
 // Dictation: speak and the words are typed into the app you're in. Transcription only, no AI.
 // Started and finished with the right ⌘ key (tapped alone) or ⌥D; Esc or the pill's menu cancels.
-import { Context, Duration, Effect, Layer, Ref, Schedule, Stream } from 'effect';
+import { Context, Duration, Effect, FiberHandle, Layer, Ref, Schedule, Stream } from 'effect';
 import type { DictationEvent } from '../../shared/ipc';
 import { AppState } from './AppState';
 import { NativeHelper } from './NativeHelper';
@@ -88,7 +88,21 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
         }).pipe(Effect.catch((e) => failed(e.message)));
       });
 
-      // The helper reports the right ⌘ taps and the voice level.
+      // The right ⌘ key needs Input Monitoring. Without it: open the permissions guide once, and keep
+      // trying, so it starts working as soon as the permission is granted (⌥D works meanwhile).
+      const explained = yield* Ref.make(false);
+      const explain = Ref.getAndSet(explained, true).pipe(
+        Effect.flatMap((done) => (done ? Effect.void : guide.show)),
+      );
+      const arm = helper.watchRightCommand.pipe(
+        Effect.tapError((e) => (e.message === 'input-monitoring' ? explain : Effect.void)),
+        Effect.retry(Schedule.spaced(Duration.seconds(5))),
+        Effect.tap(() => Effect.logInfo('dictation: right ⌘ ready')),
+        Effect.ignore,
+      );
+      const watching = yield* FiberHandle.make<void, never>();
+
+      // The helper reports the right ⌘ taps and the voice level; after a restart the watch is armed again.
       const helperEvents = yield* helper.subscribe;
       yield* helperEvents.pipe(
         Stream.runForEach((event) => {
@@ -101,26 +115,22 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
               return pill.send({ _tag: 'Level', level: event.level });
             case 'dictation.error':
               return Effect.logWarning(`dictation: ${event.message}`);
+            case 'exit':
+              // A recording in progress died with the helper.
+              return Ref.get(phase).pipe(
+                Effect.flatMap((p) =>
+                  p === 'idle' ? Effect.void : failed('Dictation stopped unexpectedly.'),
+                ),
+              );
+            case 'ready':
+              return FiberHandle.run(watching, arm).pipe(Effect.asVoid);
             default:
               return Effect.void;
           }
         }),
         Effect.forkScoped,
       );
-      if (helper.available) {
-        // The right ⌘ key needs Input Monitoring. Without it: open the permissions guide once, and keep
-        // trying, so it starts working as soon as the permission is granted (⌥D works meanwhile).
-        const explained = yield* Ref.make(false);
-        const explain = Ref.getAndSet(explained, true).pipe(
-          Effect.flatMap((done) => (done ? Effect.void : guide.show)),
-        );
-        yield* helper.watchRightCommand.pipe(
-          Effect.tapError((e) => (e.message === 'input-monitoring' ? explain : Effect.void)),
-          Effect.retry(Schedule.spaced(Duration.seconds(5))),
-          Effect.tap(() => Effect.logInfo('dictation: right ⌘ ready')),
-          Effect.forkScoped,
-        );
-      }
+      if (helper.available) yield* FiberHandle.run(watching, arm);
 
       return {
         phase: Ref.get(phase),

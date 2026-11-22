@@ -79,8 +79,12 @@ case "serve":
     // AppKit context for NSScreen / NSEvent.mouseLocation; never shows in the Dock.
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
+    // The helper shares Machete's bundle identifier, so a "quit Machete" Apple event can land here.
+    // It belongs to the app: the helper ends only when Machete closes its stdin.
+    let keepAlive = KeepAlive()
+    app.delegate = keepAlive
     MainActor.assumeIsolated { Server.shared.run() }
-    app.run()
+    withExtendedLifetime(keepAlive) { app.run() }
 
 default:
     fail("usage: machete-native serve|extract|icon|transcribe|permissions|settings-window")
@@ -224,4 +228,8 @@ final class Server {
             reply(id, ["ok": false, "error": "unknown command"])
         }
     }
+}
+
+final class KeepAlive: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { .terminateCancel }
 }

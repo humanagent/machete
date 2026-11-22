@@ -511,3 +511,10 @@ button {
   cursor: ns-resize;
   -webkit-app-region: no-drag;
 }
+
+/* While the panel is being dragged: a grabbing hand everywhere, and no text selection. */
+body.dragging,
+body.dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}

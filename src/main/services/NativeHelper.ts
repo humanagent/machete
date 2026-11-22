@@ -32,8 +32,10 @@ export const HelperEvent = Schema.Union([
   Schema.Struct({ type: Schema.Literal('dictation.level'), level: Schema.Number }),
   Schema.Struct({ type: Schema.Literal('dictation.error'), message: Schema.String }),
   Schema.Struct({ type: Schema.Literal('rightcmd') }),
-  /** Synthetic: the helper process ended. */
+  /** Synthetic: the helper process ended (it is restarted a moment later). */
   Schema.Struct({ type: Schema.Literal('exit') }),
+  /** Synthetic: the helper is back after a restart; anything armed in it (the right ⌘ watch) must be re-armed. */
+  Schema.Struct({ type: Schema.Literal('ready') }),
 ]);
 export type HelperEvent = typeof HelperEvent.Type;
 
@@ -141,7 +143,9 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
           new Map<number, Deferred.Deferred<Readonly<Record<string, unknown>>, HelperError>>(),
         );
         const nextID = yield* Ref.make(1);
-        const inbox = yield* Queue.unbounded<string>();
+        /** stdin of the current helper process; each run gets its own queue. */
+        const inbox = yield* Ref.make(yield* Queue.unbounded<string>());
+        const offer = (line: string) => Ref.get(inbox).pipe(Effect.flatMap((q) => Queue.offer(q, line)));
         const running = yield* Ref.make(false);
 
         const failPending = (message: string) =>
@@ -183,27 +187,46 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
           });
 
         if (Option.isSome(binary)) {
-          const command = ChildProcess.make(binary.value, ['serve', '--exclude-pid', String(process.pid)], {
-            stdin: {
-              stream: Stream.fromQueue(inbox).pipe(
-                Stream.map((l) => `${l}\n`),
-                Stream.encodeText,
-              ),
-            },
-          });
-          const handle = yield* spawner.spawn(command);
-          yield* Ref.set(running, true);
-          yield* handle.stderr.pipe(
-            Stream.decodeText(),
-            Stream.splitLines,
-            Stream.runForEach((l) => Effect.logWarning(`native stderr: ${l}`)),
-            Effect.ignore,
-            Effect.forkScoped,
-          );
-          yield* handle.stdout.pipe(
-            Stream.decodeText(),
-            Stream.splitLines,
-            Stream.runForEach(dispatch),
+          const exe = binary.value;
+          const started = yield* Deferred.make<void>();
+          const runs = yield* Ref.make(0);
+          /** One helper process, from spawn until its stdout ends. */
+          const runOnce = Effect.gen(function* () {
+            const queue = yield* Queue.unbounded<string>();
+            yield* Ref.set(inbox, queue);
+            // Closing stdin lets the helper stop cleanly (finish transcribing, then exit).
+            yield* Effect.addFinalizer(() => Queue.shutdown(queue));
+            const handle = yield* spawner.spawn(
+              ChildProcess.make(exe, ['serve', '--exclude-pid', String(process.pid)], {
+                stdin: {
+                  stream: Stream.fromQueue(queue).pipe(
+                    Stream.map((l) => `${l}\n`),
+                    Stream.encodeText,
+                  ),
+                },
+              }),
+            );
+            yield* Ref.set(running, true);
+            yield* Deferred.succeed(started, undefined);
+            if ((yield* Ref.getAndUpdate(runs, (n) => n + 1)) > 0) {
+              yield* Effect.logInfo('native: helper restarted');
+              yield* PubSub.publish(events, { type: 'ready' });
+            }
+            yield* handle.stderr.pipe(
+              Stream.decodeText(),
+              Stream.splitLines,
+              Stream.runForEach((l) => Effect.logWarning(`native stderr: ${l}`)),
+              Effect.ignore,
+              Effect.forkScoped,
+            );
+            yield* handle.stdout.pipe(
+              Stream.decodeText(),
+              Stream.splitLines,
+              Stream.runForEach(dispatch),
+              Effect.ignore,
+            );
+          }).pipe(
+            Effect.scoped,
             Effect.ignore,
             Effect.ensuring(
               Effect.gen(function* () {
@@ -213,10 +236,14 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
                 yield* PubSub.publish(events, { type: 'exit' });
               }),
             ),
+          );
+          // Supervised: if the helper dies, it comes back a second later.
+          yield* runOnce.pipe(
+            Effect.andThen(Effect.sleep(Duration.seconds(1))),
+            Effect.forever,
             Effect.forkScoped,
           );
-          // Closing stdin lets the helper stop cleanly (finish transcribing, then exit).
-          yield* Effect.addFinalizer(() => Queue.shutdown(inbox));
+          yield* Deferred.await(started).pipe(Effect.timeout(Duration.seconds(10)), Effect.ignore);
         }
 
         const request = <S extends Schema.Top>(
@@ -230,7 +257,7 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
             const id = yield* Ref.getAndUpdate(nextID, (n) => n + 1);
             const reply = yield* Deferred.make<Readonly<Record<string, unknown>>, HelperError>();
             yield* Ref.update(pending, (map) => new Map(map).set(id, reply));
-            yield* Queue.offer(inbox, JSON.stringify({ id, cmd, ...fields }));
+            yield* offer(JSON.stringify({ id, cmd, ...fields }));
             const body = yield* Deferred.await(reply).pipe(
               Effect.timeoutOrElse({
                 duration: timeout,
@@ -250,7 +277,7 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
           });
 
         const send = (cmd: string, fields: Readonly<Record<string, unknown>> = {}) =>
-          Queue.offer(inbox, JSON.stringify({ cmd, ...fields })).pipe(Effect.asVoid);
+          offer(JSON.stringify({ cmd, ...fields })).pipe(Effect.asVoid);
 
         const extractText = (file: string) =>
           Option.match(binary, {

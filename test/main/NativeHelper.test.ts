@@ -134,6 +134,31 @@ describe('the serve protocol, against a stand-in helper', () => {
     expect((await withHelper('bare', (h) => Effect.flip(h.fingerprint))).message).toBe('Native helper error');
   });
 
+  test('permissions and the System Settings window come from one-shot runs', async () => {
+    const got = await withHelper('ok', (h) => Effect.all([h.permissionStatus, h.settingsWindow]));
+    expect(got).toEqual([
+      {
+        microphone: 'granted',
+        screen: 'denied',
+        accessibility: 'granted',
+        inputMonitoring: 'not-determined',
+      },
+      Option.some({ x: 10, y: 20, width: 700, height: 600 }),
+    ]);
+    expect(await withHelper('fail', (h) => h.settingsWindow)).toEqual(Option.none());
+  });
+
+  test('without the helper, permissions explain why', async () => {
+    const error = await Effect.runPromise(
+      Effect.service(NativeHelper).pipe(
+        Effect.flatMap((h) => Effect.flip(h.permissionStatus)),
+        Effect.provide(NativeHelper.layerFrom(Option.none()).pipe(Layer.provide(NodeServices.layer))),
+        Effect.scoped,
+      ),
+    );
+    expect(error.message).toContain('need the macOS helper');
+  });
+
   test('a reply of the wrong shape is an error, not a crash', async () => {
     expect((await withHelper('garbled', (h) => Effect.flip(h.fingerprint))).message).toBe(
       'fingerprint: unexpected reply',

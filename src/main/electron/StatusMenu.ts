@@ -4,6 +4,7 @@ import { Effect, Layer, Stream } from 'effect';
 import { Languages } from '../../shared/domain';
 import { type AppModel, AppState } from '../services/AppState';
 import { Dictation } from '../services/Dictation';
+import { PermissionsGuide } from '../services/PermissionsGuide';
 import { OverlayWindow } from './OverlayWindow';
 import { assetFile } from './paths';
 import { makeRunner, type Run } from './Runner';
@@ -18,6 +19,7 @@ interface Actions {
   readonly app: typeof AppState.Service;
   readonly overlay: typeof OverlayWindow.Service;
   readonly dictation: typeof Dictation.Service;
+  readonly permissions: typeof PermissionsGuide.Service;
   readonly run: Run<never>;
 }
 
@@ -64,6 +66,7 @@ export const menuTemplate = (m: AppModel, a: Actions): Array<Electron.MenuItemCo
         ] as const)
       : ([{ label: 'Sign in with ChatGPT…', click: () => a.run(a.app.login) }] as const)),
     { type: 'separator' },
+    { label: 'Permissions…', click: () => a.run(a.permissions.show) },
     { label: 'Quit Machete', click: () => electronApp.quit() },
   ];
 };
@@ -86,6 +89,7 @@ export const StatusMenuLive = Layer.effectDiscard(
     const app = yield* AppState;
     const overlay = yield* OverlayWindow;
     const dictation = yield* Dictation;
+    const permissions = yield* PermissionsGuide;
     const run = yield* makeRunner<never>();
     const icon = nativeImage.createFromPath(assetFile('trayTemplate.png'));
     icon.setTemplateImage(true);
@@ -98,7 +102,9 @@ export const StatusMenuLive = Layer.effectDiscard(
       Stream.changesWith((a, b) => menuKey(a) === menuKey(b)),
       Stream.runForEach((m) =>
         Effect.sync(() =>
-          tray.setContextMenu(Menu.buildFromTemplate(menuTemplate(m, { app, overlay, dictation, run }))),
+          tray.setContextMenu(
+            Menu.buildFromTemplate(menuTemplate(m, { app, overlay, dictation, permissions, run })),
+          ),
         ),
       ),
       Effect.forkScoped,

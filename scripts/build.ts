@@ -1,12 +1,12 @@
 // Bundles the app into out/: the main process and preloads for Electron's Node (CommonJS),
-// the three windows for the browser, plus their HTML and CSS.
+// the four windows for the browser, plus their HTML and CSS.
 import { cp, rm } from 'node:fs/promises';
 import { Console, Effect } from 'effect';
 
 const root = new URL('..', import.meta.url).pathname;
 const out = `${root}out`;
 const production = process.argv.includes('--production');
-const WINDOWS = ['overlay', 'manage', 'dictation'] as const;
+const WINDOWS = ['overlay', 'manage', 'dictation', 'permissions'] as const;
 
 class BuildFailed extends Error {}
 

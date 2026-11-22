@@ -6,10 +6,13 @@ import CoreGraphics
 enum Dictation {
     /// Watches for the right Command key pressed and released on its own (no other key in between).
     /// Needs Input Monitoring or Accessibility; returns false if macOS refuses the event tap.
+    @MainActor private static var askedForInputMonitoring = false
+
     @MainActor static func watchRightCommand(_ onTap: @escaping () -> Void) -> Bool {
-        // Without Input Monitoring the tap is created but never receives a key: ask, and report it.
+        // Without Input Monitoring the tap is created but never receives a key: ask once (the app retries,
+        // and its permissions guide takes over from there), and report it.
         guard CGPreflightListenEventAccess() else {
-            CGRequestListenEventAccess()
+            if !askedForInputMonitoring { askedForInputMonitoring = true; CGRequestListenEventAccess() }
             return false
         }
         RightCommand.onTap = onTap

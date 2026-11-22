@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; script-src 'self'"
+    />
+    <title>Set up Machete</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img id="app-icon" class="app-icon" alt="" hidden />
+      <div>
+        <h1>Set up Machete</h1>
+        <p class="sub">Machete stays invisible on screen shares. To help you, macOS has to let it:</p>
+      </div>
+    </header>
+
+    <ul class="rows" id="rows" aria-label="Permissions"></ul>
+
+    <section class="guide" id="guide" hidden aria-live="polite">
+      <div class="tile" id="tile" draggable="true" aria-label="Drag Machete into the list">
+        <img id="tile-icon" alt="" />
+        <span>Machete</span>
+      </div>
+      <div class="guide-text">
+        <strong id="guide-title">Drag Machete into the list</strong>
+        <span>Drop it on the list in System Settings, then confirm with Touch ID or your password.</span>
+      </div>
+    </section>
+
+    <section class="restart" id="restart" hidden>
+      <span>Screen Recording works after Machete restarts.</span>
+      <button type="button" class="primary small" id="restart-btn">Restart</button>
+    </section>
+
+    <footer class="foot">
+      <span class="progress" id="progress"></span>
+      <button type="button" id="close">Later</button>
+    </footer>
+    <script src="main.js"></script>
+  </body>
+</html>

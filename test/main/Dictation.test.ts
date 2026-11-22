@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import { Effect, Layer } from 'effect';
 import { type AppModel, AppState, type AppStateShape } from '../../src/main/services/AppState';
 import { HelperError } from '../../src/main/errors';
-import { Dictation, DictationPill, INPUT_MONITORING } from '../../src/main/services/Dictation';
-import { ExternalBrowser } from '../../src/main/services/ExternalBrowser';
+import { Dictation, DictationPill } from '../../src/main/services/Dictation';
+import { PermissionsGuide } from '../../src/main/services/PermissionsGuide';
 import type { DictationEvent } from '../../src/shared/ipc';
 import { fakeHelper } from '../support/fakes';
 
@@ -32,9 +32,9 @@ const run = <A>(
         const app = Layer.succeed(AppState, {
           model: Effect.succeed({ dictationLanguage: 'es-419' } as AppModel),
         } as AppStateShape);
-        const browser = Layer.succeed(ExternalBrowser, { open: () => Effect.void });
+        const guide = Layer.succeed(PermissionsGuide, { show: Effect.void, showIfMissing: Effect.void });
         const layer = Dictation.layer.pipe(
-          Layer.provide(Layer.mergeAll(helper.layer, pillLayer, app, browser)),
+          Layer.provide(Layer.mergeAll(helper.layer, pillLayer, app, guide)),
         );
         return yield* Effect.service(Dictation).pipe(
           Effect.flatMap((dictation) => f({ dictation, pill, helper })),
@@ -83,9 +83,8 @@ test('the right ⌘ key toggles too, and cancel types nothing', async () => {
   expect(result.calls).toContain('dictate.stop:true');
 });
 
-test('without Input Monitoring it explains once, opens the settings page and keeps retrying', async () => {
-  const shown: Array<string> = [];
-  const opened: Array<string> = [];
+test('without Input Monitoring it opens the permissions guide once and keeps retrying', async () => {
+  let guided = 0;
   let attempts = 0;
   await Effect.runPromise(
     Effect.scoped(
@@ -104,22 +103,19 @@ test('without Input Monitoring it explains once, opens the settings page and kee
         });
         const app = Layer.succeed(AppState, {
           model: Effect.succeed({ dictationLanguage: 'en-US' } as AppModel),
-          showError: (m: string) => Effect.sync(() => void shown.push(m)),
         } as AppStateShape);
-        const browser = Layer.succeed(ExternalBrowser, {
-          open: (u: string) => Effect.sync(() => void opened.push(u)),
+        const guide = Layer.succeed(PermissionsGuide, {
+          show: Effect.sync(() => void guided++),
+          showIfMissing: Effect.void,
         });
         yield* Effect.service(Dictation).pipe(
           Effect.andThen(Effect.sleep('50 millis')),
-          Effect.provide(
-            Dictation.layer.pipe(Layer.provide(Layer.mergeAll(helper.layer, pill, app, browser))),
-          ),
+          Effect.provide(Dictation.layer.pipe(Layer.provide(Layer.mergeAll(helper.layer, pill, app, guide)))),
         );
       }),
     ),
   );
-  expect(shown).toEqual([INPUT_MONITORING]);
-  expect(opened).toEqual(['x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent']);
+  expect(guided).toBe(1);
 });
 
 const settle = Effect.sleep('20 millis');

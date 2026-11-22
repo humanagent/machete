@@ -9,6 +9,7 @@ import { DictationMenuLive, DictationPillLive } from './electron/DictationPillWi
 import { HotkeysLive } from './electron/Hotkeys';
 import { ManageWindow } from './electron/ManageWindow';
 import { OverlayWindow } from './electron/OverlayWindow';
+import { PermissionsWindowLive } from './electron/PermissionsWindow';
 import { Clipboard, ExternalBrowserLive } from './electron/Platform';
 import { appRoot } from './electron/paths';
 import { StatusMenuLive } from './electron/StatusMenu';
@@ -20,6 +21,7 @@ import { ContextFiles } from './services/ContextFiles';
 import { Dictation } from './services/Dictation';
 import { FileLoggerLive } from './services/FileLogger';
 import { NativeHelper } from './services/NativeHelper';
+import { PermissionsGuide } from './services/PermissionsGuide';
 import { ProfileStore } from './services/ProfileStore';
 import { Settings } from './services/Settings';
 
@@ -39,10 +41,12 @@ const Core = AppState.layer.pipe(
 const Windows = Layer.mergeAll(HotkeysLive, StatusMenuLive, DictationMenuLive).pipe(
   Layer.provideMerge(OverlayWindow.layer),
   Layer.provideMerge(Dictation.layer),
-  Layer.provideMerge(Layer.mergeAll(ManageWindow.layer, DictationPillLive, Clipboard.layer)),
+  Layer.provideMerge(
+    Layer.mergeAll(ManageWindow.layer, DictationPillLive, Clipboard.layer, PermissionsWindowLive),
+  ),
 );
 
-/** Opens the panel and checks the ChatGPT session once everything is up. */
+/** Opens the panel, checks the ChatGPT session and, if macOS still blocks something, the permissions guide. */
 const Startup = Layer.effectDiscard(
   Effect.gen(function* () {
     const state = yield* AppState;
@@ -51,13 +55,9 @@ const Startup = Layer.effectDiscard(
     yield* state.openPanel;
     yield* overlay.show;
     yield* state.checkLogin;
-    // Ask for every permission up front, so Machete is listed in each Privacy & Security pane.
-    const helper = yield* NativeHelper;
-    yield* helper.requestPermissions.pipe(
-      Effect.tap((granted) => Effect.logInfo(`permissions: ${JSON.stringify(granted)}`)),
-      Effect.ignore,
-      Effect.forkDetach,
-    );
+    const permissions = yield* PermissionsGuide;
+    // MACHETE_SETUP=1 always opens the guide (to try it on a Mac that already allows everything).
+    yield* process.env['MACHETE_SETUP'] === '1' ? permissions.show : permissions.showIfMissing;
   }),
 );
 

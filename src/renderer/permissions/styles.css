@@ -1,0 +1,229 @@
+/* "Set up Machete": a small vibrant macOS window, light/dark aware. */
+@font-face {
+  font-family: 'Inter';
+  src: url('../../../assets/InterVariable.ttf') format('truetype');
+  font-weight: 100 900;
+}
+:root {
+  color-scheme: light dark;
+  --fg: #1d1d1f;
+  --sec: rgba(60, 60, 67, 0.62);
+  --card: rgba(255, 255, 255, 0.62);
+  --line: rgba(0, 0, 0, 0.08);
+  --accent: #0a84ff;
+  --ok: #248a3d;
+  --tile: rgba(255, 255, 255, 0.85);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #f5f5f7;
+    --sec: rgba(235, 235, 245, 0.6);
+    --card: rgba(255, 255, 255, 0.06);
+    --line: rgba(255, 255, 255, 0.09);
+    --ok: #32d74b;
+    --tile: rgba(255, 255, 255, 0.1);
+  }
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  color: var(--fg);
+  font:
+    13px/1.38 'Inter',
+    -apple-system,
+    system-ui,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 40px 18px 16px;
+  -webkit-app-region: drag;
+}
+button,
+.tile {
+  -webkit-app-region: no-drag;
+}
+
+.head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.app-icon {
+  width: 52px;
+  height: 52px;
+  flex: none;
+}
+h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.sub {
+  margin: 2px 0 0;
+  color: var(--sec);
+  font-size: 12px;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--card);
+  border: 0.5px solid var(--line);
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.row + .row {
+  border-top: 0.5px solid var(--line);
+}
+.row.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.row .title {
+  font-weight: 560;
+}
+.row .why {
+  display: block;
+  color: var(--sec);
+  font-size: 11.5px;
+}
+/* Allowed rows collapse to their title: what is left to do stands out. */
+.row.done .why {
+  display: none;
+}
+.row.done .title {
+  font-weight: 500;
+  color: var(--sec);
+}
+.allowed {
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 560;
+}
+.allowed::before {
+  content: '✓ ';
+}
+
+button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 520;
+  color: var(--fg);
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 12px;
+}
+button:active {
+  filter: brightness(0.92);
+}
+button.primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: transparent;
+}
+button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
+.guide {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.tile {
+  flex: none;
+  width: 84px;
+  padding: 8px 0 6px;
+  border-radius: 10px;
+  background: var(--tile);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 560;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  animation: nudge 1.6s ease-in-out infinite;
+}
+.tile:active {
+  cursor: grabbing;
+  animation: none;
+}
+.tile img {
+  width: 52px;
+  height: 52px;
+  pointer-events: none;
+}
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(var(--nudge, -5px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    animation: none;
+  }
+}
+.guide-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--sec);
+}
+.guide-text strong {
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.restart {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.progress {
+  color: var(--sec);
+  font-size: 12px;
+}

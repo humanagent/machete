@@ -3,7 +3,7 @@
 import { join } from 'node:path';
 import { app } from 'electron';
 
-type Window = 'overlay' | 'manage' | 'dictation';
+type Window = 'overlay' | 'manage' | 'dictation' | 'permissions';
 
 export const appRoot = (): string => app.getAppPath();
 export const rendererFile = (name: Window) => join(appRoot(), 'out', 'renderer', name, 'index.html');

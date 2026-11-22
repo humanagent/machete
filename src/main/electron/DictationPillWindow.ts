@@ -7,8 +7,9 @@ import { Dictation, DictationPill } from '../services/Dictation';
 import { preloadFile, rendererFile } from './paths';
 import { makeRunner } from './Runner';
 
-const WIDTH = 380;
-const HEIGHT = 92;
+// The window is the pill (no margin): macOS draws the blur, rounded corners and shadow.
+const WIDTH = 280;
+const HEIGHT = 62;
 
 export const DictationPillLive = Layer.effect(
   DictationPill,
@@ -30,6 +31,9 @@ export const DictationPillLive = Layer.effect(
           skipTaskbar: true,
           hasShadow: true,
           focusable: false,
+          ...(process.platform === 'darwin'
+            ? { vibrancy: 'hud' as const, visualEffectState: 'active' as const, roundedCorners: true }
+            : {}),
           acceptFirstMouse: true,
           alwaysOnTop: true,
           ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
@@ -65,7 +69,7 @@ export const DictationPillLive = Layer.effect(
           const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
           win.setBounds({
             x: Math.round(area.x + (area.width - WIDTH) / 2),
-            y: Math.round(area.y + area.height - HEIGHT - 24),
+            y: Math.round(area.y + area.height - HEIGHT - 28),
             width: WIDTH,
             height: HEIGHT,
           });

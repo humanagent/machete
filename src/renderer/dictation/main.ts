@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-const DOTS = 26;
+const DOTS = 24;
 const el = {
   pill: byId('pill'),
   icon: byId<HTMLImageElement>('icon'),
@@ -22,7 +22,7 @@ const levels: Array<number> = new Array(DOTS).fill(0);
 
 const draw = () =>
   dots.forEach((dot, i) => {
-    dot.style.height = `${4 + Math.round((levels[i] ?? 0) * 14)}px`;
+    dot.style.height = `${3 + Math.round((levels[i] ?? 0) * 9)}px`;
   });
 
 const showStatus = (text: string, error: boolean) => {

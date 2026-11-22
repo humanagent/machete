@@ -153,3 +153,28 @@ test('dictation listens in its own language, not the call language', async () =>
   });
   expect(locales).toEqual(['es-419']);
 });
+
+test('after the helper restarts, the right ⌘ watch is armed again', async () => {
+  const calls = await run(({ helper }) =>
+    Effect.gen(function* () {
+      yield* settle;
+      yield* helper.emit({ type: 'exit' });
+      yield* helper.emit({ type: 'ready' });
+      yield* settle;
+      return helper.log.calls.filter((c) => c === 'rightcmd.watch').length;
+    }),
+  );
+  expect(calls).toBe(2);
+});
+
+test('a recording dies with the helper: the pill says so', async () => {
+  const pill = await run(({ dictation, pill, helper }) =>
+    Effect.gen(function* () {
+      yield* dictation.toggle;
+      yield* helper.emit({ type: 'exit' });
+      yield* settle;
+      return [...pill];
+    }),
+  );
+  expect(pill).toContain('Failed');
+});

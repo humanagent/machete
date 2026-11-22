@@ -10,6 +10,9 @@ export { Channels } from './channels';
 
 export const OverlayCommand = Schema.TaggedUnion({
   Layout: { width: Schema.Number, height: Schema.Number },
+  /** Press-and-move anywhere on the panel moves it: where the drag started, then how far it went. */
+  DragStart: {},
+  DragMove: { dx: Schema.Number, dy: Schema.Number },
   SetQuestion: { question: Schema.String },
   Ask: { question: Schema.String },
   Collapse: {},

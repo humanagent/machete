@@ -337,6 +337,65 @@ const bindInput = Effect.sync(() => {
   };
   el.grip.addEventListener('pointerup', endGrip);
   el.grip.addEventListener('pointercancel', endGrip);
+
+  // Press anywhere and move: the whole panel follows, even from a button. A press that doesn't move
+  // stays a click. The text field (selecting text) and the grip (resizing) keep their own behaviour.
+  const DRAG_THRESHOLD = 4;
+  let press: { x: number; y: number; id: number; target: Element; moving: boolean } | null = null;
+  let swallowClick = false;
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.button !== 0 || !(event.target instanceof Element)) return;
+      if (event.target.closest('input, textarea, #grip')) return;
+      press = {
+        x: event.screenX,
+        y: event.screenY,
+        id: event.pointerId,
+        target: event.target,
+        moving: false,
+      };
+    },
+    true,
+  );
+  document.addEventListener(
+    'pointermove',
+    (event) => {
+      if (!press || event.pointerId !== press.id) return;
+      const dx = event.screenX - press.x;
+      const dy = event.screenY - press.y;
+      if (!press.moving) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        press.moving = true;
+        press.target.setPointerCapture?.(event.pointerId);
+        document.body.classList.add('dragging');
+        send({ _tag: 'DragStart' });
+      }
+      event.preventDefault();
+      send({ _tag: 'DragMove', dx, dy });
+    },
+    true,
+  );
+  const endPress = () => {
+    if (press?.moving) {
+      swallowClick = true;
+      document.body.classList.remove('dragging');
+      // The click that ends a drag is not a click; any later one is.
+      setTimeout(() => (swallowClick = false), 0);
+    }
+    press = null;
+  };
+  document.addEventListener('pointerup', endPress, true);
+  document.addEventListener('pointercancel', endPress, true);
+  window.addEventListener(
+    'click',
+    (event) => {
+      if (!swallowClick) return;
+      event.stopPropagation();
+      event.preventDefault();
+    },
+    true,
+  );
 });
 
 /** The recording clock ticks here, once a second, without waiting for a new state. */

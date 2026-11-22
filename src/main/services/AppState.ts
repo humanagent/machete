@@ -210,7 +210,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         partialMe: '',
         partialThem: '',
         cardOpen: false,
-        collapsed: false,
+        // Machete starts as just the bar; asking, an error or ⌘↩ opens the card.
+        collapsed: true,
         cardWidth: saved.cardWidth,
         cardHeight: saved.cardHeight,
         glassOpacity: saved.glassOpacity,

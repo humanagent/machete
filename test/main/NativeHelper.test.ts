@@ -159,6 +159,30 @@ describe('the serve protocol, against a stand-in helper', () => {
     expect(error.message).toContain('need the macOS helper');
   });
 
+  test('a helper that dies is restarted, and says so with a ready event', async () => {
+    process.env['FAKE_NATIVE_CRASH'] = '1';
+    try {
+      const result = await withHelper('ok', (h) =>
+        Effect.gen(function* () {
+          const events = yield* h.subscribe;
+          const first = yield* h.frontmost;
+          const seen = yield* events.pipe(
+            Stream.filter((e) => e.type === 'exit' || e.type === 'ready'),
+            Stream.take(2),
+            Stream.runCollect,
+          );
+          const second = yield* h.frontmost;
+          return { first, seen, second };
+        }),
+      );
+      expect(result.first.name).toBe('Notes');
+      expect(result.seen as ReadonlyArray<HelperEvent>).toEqual([{ type: 'exit' }, { type: 'ready' }]);
+      expect(result.second.name).toBe('Notes');
+    } finally {
+      delete process.env['FAKE_NATIVE_CRASH'];
+    }
+  }, 15_000);
+
   test('a reply of the wrong shape is an error, not a crash', async () => {
     expect((await withHelper('garbled', (h) => Effect.flip(h.fingerprint))).message).toBe(
       'fingerprint: unexpected reply',

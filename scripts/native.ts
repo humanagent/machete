@@ -58,4 +58,7 @@ const program = Effect.gen(function* () {
   yield* Console.log(`icons ready: ${ICONS.length} symbols`);
 });
 
-Effect.runPromise(program).catch(() => process.exit(1));
+Effect.runPromise(program).catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
+});

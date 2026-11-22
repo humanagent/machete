@@ -41,6 +41,12 @@ bun run dist           # DMG
 
 Grant **Screen & System Audio Recording**, **Microphone**, **Speech Recognition** and, for dictation, **Accessibility** to Machete (or to your terminal when running `bun start`).
 
+## Release
+
+`bun run pack` builds a local, ad-hoc signed app (hardened runtime) to try on this Mac. Ad-hoc builds lose macOS permissions every time they are rebuilt.
+
+A real release is signed with a **Developer ID Application** certificate and **notarized** by Apple: push a `v*` tag and `.github/workflows/release.yml` builds, signs, notarizes, verifies (`codesign`, `spctl`, `stapler`) and publishes the DMG. It needs an Apple Developer Program membership and five repository secrets, listed at the top of the workflow. Locally, `bun run dist` does the same when the certificate is in the keychain and `APPLE_API_KEY`, `APPLE_API_KEY_ID` and `APPLE_API_ISSUER` are set.
+
 ## Architecture
 
 100% TypeScript on [Effect](https://effect.website): every service is a `Context.Service` built by a `Layer`, every failure is a typed error, every value that crosses a boundary (disk, IPC, the helper) is a `Schema`.

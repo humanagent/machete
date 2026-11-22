@@ -81,13 +81,6 @@ const SettingsBounds = Schema.Struct({
   Width: Schema.Number,
   Height: Schema.Number,
 });
-const Permissions = Schema.Struct({
-  microphone: Schema.Boolean,
-  speech: Schema.Boolean,
-  screen: Schema.Boolean,
-  inputMonitoring: Schema.Boolean,
-  accessibility: Schema.Boolean,
-});
 
 // MARK: Service
 
@@ -105,8 +98,6 @@ export interface NativeHelperShape {
   readonly frontmost: Effect.Effect<{ readonly name: string; readonly icon: string }, HelperError>;
   readonly paste: (text: string) => Effect.Effect<void, HelperError>;
   readonly watchRightCommand: Effect.Effect<void, HelperError>;
-  /** Asks macOS for every permission Machete uses; returns which ones are granted. */
-  readonly requestPermissions: Effect.Effect<Readonly<Record<string, boolean>>, HelperError>;
   /** What macOS allows right now (a fresh process each time: the long-lived helper caches these). */
   readonly permissionStatus: Effect.Effect<PermissionsSnapshot, HelperError>;
   /** The frontmost System Settings window, if one is open. */
@@ -324,15 +315,6 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
           ),
           paste: (text) => request('paste', { text }, Nothing, Duration.seconds(10)).pipe(Effect.asVoid),
           watchRightCommand: request('rightcmd.watch', {}, Nothing).pipe(Effect.asVoid),
-          requestPermissions: request('permissions.request', {}, Permissions, Duration.minutes(5)).pipe(
-            Effect.map(({ microphone, speech, screen, inputMonitoring, accessibility }) => ({
-              microphone,
-              speech,
-              screen,
-              inputMonitoring,
-              accessibility,
-            })),
-          ),
           permissionStatus: oneShot(['permissions'], PermissionsSnapshot),
           settingsWindow: oneShot(['settings-window'], SettingsBounds).pipe(
             Effect.map((b) => ({ x: b.X, y: b.Y, width: b.Width, height: b.Height })),

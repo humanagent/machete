@@ -75,13 +75,6 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       frontmost: Effect.succeed({ name: 'TextEdit', icon: '' }),
       paste: (text) => Effect.sync(() => void log.typed.push(text)),
       watchRightCommand: record('rightcmd.watch'),
-      requestPermissions: Effect.succeed({
-        microphone: true,
-        speech: true,
-        screen: true,
-        inputMonitoring: true,
-        accessibility: true,
-      }),
       permissionStatus: Effect.succeed({
         microphone: 'granted',
         screen: 'granted',

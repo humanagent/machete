@@ -99,7 +99,6 @@ describe('the serve protocol, against a stand-in helper', () => {
         front: h.frontmost,
         paste: h.paste('hola'),
         watch: h.watchRightCommand,
-        granted: h.requestPermissions,
         listen: h.startListening('en-US'),
         pause: h.setPaused(true),
         stop: h.stopListening,
@@ -109,13 +108,6 @@ describe('the serve protocol, against a stand-in helper', () => {
     expect(result.pixels).toEqual([1, 2, 3]);
     expect(result.text).toBe('hola');
     expect(result.front).toEqual({ name: 'Notes', icon: '' });
-    expect(result.granted).toEqual({
-      microphone: true,
-      speech: true,
-      screen: false,
-      inputMonitoring: true,
-      accessibility: false,
-    });
   });
 
   test('events reach subscribers; logs and garbage do not', async () => {

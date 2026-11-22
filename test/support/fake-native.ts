@@ -10,13 +10,6 @@ const replies: Record<string, Record<string, unknown>> = {
   fingerprint: { pixels: [1, 2, 3] },
   'dictate.stop': { text: 'hola' },
   frontmost: { name: 'Notes' },
-  'permissions.request': {
-    microphone: true,
-    speech: true,
-    screen: false,
-    inputMonitoring: true,
-    accessibility: false,
-  },
 };
 const mode = process.env['FAKE_NATIVE'] ?? 'ok';
 

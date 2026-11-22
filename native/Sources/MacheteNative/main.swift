@@ -16,7 +16,6 @@ import AVFoundation
 //   {"id":5,"cmd":"dictate.stop","cancel":false}     -> {"id":5,"ok":true,"text":…} (mic only, no AI)
 //   {"id":6,"cmd":"frontmost"}                       -> {"id":6,"ok":true,"name":…,"icon":dataURL}
 //   {"id":7,"cmd":"paste","text":…}                  -> {"id":7,"ok":true|false} (types into the focused app)
-//   {"id":9,"cmd":"permissions.request"}             -> {"id":9,"ok":true,"microphone":bool,…} (asks for each one)
 //   {"id":8,"cmd":"rightcmd.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightcmd"} on each lone right-⌘ tap
 // events: {"type":"partial"|"commit","speaker":"me"|"them","text":…}, {"type":"error","message":…}, {"type":"log",…}
 
@@ -161,16 +160,6 @@ final class Server {
             await t?.stop()
             reply(id, ["ok": true])
             Out.emit(["type": "stopped"])
-
-        case "permissions.request":
-            // Asks for everything Machete uses, so it appears in each Privacy & Security list.
-            let mic = await AVCaptureDevice.requestAccess(for: .audio)
-            let speech = await Transcriber.requestSpeechAuth()
-            let screen = CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess()
-            let input = CGPreflightListenEventAccess() || CGRequestListenEventAccess()
-            let accessibility = Dictation.canType(prompt: true)
-            reply(id, ["ok": true, "microphone": mic, "speech": speech, "screen": screen,
-                       "inputMonitoring": input, "accessibility": accessibility])
 
         case "permissions":
             let mic = AVCaptureDevice.authorizationStatus(for: .audio)

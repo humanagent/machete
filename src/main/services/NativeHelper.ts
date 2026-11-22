@@ -72,6 +72,13 @@ const Frontmost = Schema.Struct({
   icon: Schema.optional(Schema.String),
 });
 const Nothing = Schema.Struct({});
+const Permissions = Schema.Struct({
+  microphone: Schema.Boolean,
+  speech: Schema.Boolean,
+  screen: Schema.Boolean,
+  inputMonitoring: Schema.Boolean,
+  accessibility: Schema.Boolean,
+});
 
 // MARK: Service
 
@@ -89,6 +96,8 @@ export interface NativeHelperShape {
   readonly frontmost: Effect.Effect<{ readonly name: string; readonly icon: string }, HelperError>;
   readonly paste: (text: string) => Effect.Effect<void, HelperError>;
   readonly watchRightCommand: Effect.Effect<void, HelperError>;
+  /** Asks macOS for every permission Machete uses; returns which ones are granted. */
+  readonly requestPermissions: Effect.Effect<Readonly<Record<string, boolean>>, HelperError>;
   /** Text of a PDF / Word / RTF / HTML / text file; None when it can't be read. */
   readonly extractText: (file: string) => Effect.Effect<Option.Option<string>>;
 }
@@ -263,6 +272,15 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
           ),
           paste: (text) => request('paste', { text }, Nothing, Duration.seconds(10)).pipe(Effect.asVoid),
           watchRightCommand: request('rightcmd.watch', {}, Nothing).pipe(Effect.asVoid),
+          requestPermissions: request('permissions.request', {}, Permissions, Duration.minutes(5)).pipe(
+            Effect.map(({ microphone, speech, screen, inputMonitoring, accessibility }) => ({
+              microphone,
+              speech,
+              screen,
+              inputMonitoring,
+              accessibility,
+            })),
+          ),
           extractText,
         } satisfies NativeHelperShape;
       }),

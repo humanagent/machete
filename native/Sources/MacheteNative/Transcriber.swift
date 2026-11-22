@@ -124,7 +124,7 @@ final class Transcriber {
         return s
     }
 
-    private static func requestSpeechAuth() async -> Bool {
+    static func requestSpeechAuth() async -> Bool {
         await withCheckedContinuation { cont in
             SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0 == .authorized) }
         }

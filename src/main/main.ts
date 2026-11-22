@@ -51,6 +51,13 @@ const Startup = Layer.effectDiscard(
     yield* state.openPanel;
     yield* overlay.show;
     yield* state.checkLogin;
+    // Ask for every permission up front, so Machete is listed in each Privacy & Security pane.
+    const helper = yield* NativeHelper;
+    yield* helper.requestPermissions.pipe(
+      Effect.tap((granted) => Effect.logInfo(`permissions: ${JSON.stringify(granted)}`)),
+      Effect.ignore,
+      Effect.forkDetach,
+    );
   }),
 );
 

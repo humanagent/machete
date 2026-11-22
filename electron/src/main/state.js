@@ -53,7 +53,7 @@ class AppState extends EventEmitter {
     this.directSignedIn = false;
     this.model = settings.get('model');
     this.models = [{ slug: 'gpt-6.2-sol', name: 'GPT-6.2-Sol' }, { slug: 'gpt-6.1-terra', name: 'GPT-6.1 Terra' }, { slug: 'gpt-6-luna', name: 'GPT-6-Luna' }];
-    this.visibleInCapture = settings.get('visibleInCapture');
+    this.visibleInCapture = false; // always starts hidden from screen sharing; the toggle lasts this session only
     this.cardWidth = settings.get('cardWidth');
     this.cardHeight = settings.get('cardHeight');
     this.autoAnswer = settings.get('autoAnswer');
@@ -402,7 +402,6 @@ class AppState extends EventEmitter {
 
   toggleCaptureVisibility() {
     this.visibleInCapture = !this.visibleInCapture;
-    settings.set('visibleInCapture', this.visibleInCapture);
     this.emit('captureVisibility', this.visibleInCapture);
     this.changed();
   }

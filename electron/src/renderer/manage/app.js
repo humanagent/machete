@@ -1,6 +1,6 @@
 'use strict';
 // ManageView.swift: pick a bot, edit its name / system prompt / context, drop files into its context.
-const bots = window.bots;
+// `bots` is the global exposed by the preload (contextBridge); redeclaring it would be a SyntaxError.
 const $ = (id) => document.getElementById(id);
 
 let profiles = [];

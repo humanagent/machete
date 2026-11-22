@@ -12,7 +12,6 @@ const DEFAULTS = {
   glassOpacity: 0.55,
   language: 'en-US',
   model: 'gpt-6.2-sol',
-  visibleInCapture: false,
   cardWidth: 640,
   cardHeight: 560,
   autoAnswer: true,
@@ -21,7 +20,7 @@ const DEFAULTS = {
   siwcClientID: null,
 };
 
-const TYPES = { glassOpacity: 'float', cardWidth: 'float', cardHeight: 'float', visibleInCapture: 'bool', autoAnswer: 'bool' };
+const TYPES = { glassOpacity: 'float', cardWidth: 'float', cardHeight: 'float', autoAnswer: 'bool' };
 
 let values = null;
 

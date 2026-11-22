@@ -93,12 +93,12 @@ final class AppState: ObservableObject {
     ]
 
     /// When true the overlay shows up in screenshots / screen sharing like any normal window.
-    @Published var visibleInCapture: Bool = UserDefaults.standard.bool(forKey: "visibleInCapture")
+    /// Always starts hidden from screen sharing; the eye toggle lasts for this session only.
+    @Published var visibleInCapture = false
     var applyCaptureVisibility: ((Bool) -> Void)?
 
     func toggleCaptureVisibility() {
         visibleInCapture.toggle()
-        UserDefaults.standard.set(visibleInCapture, forKey: "visibleInCapture")
         applyCaptureVisibility?(visibleInCapture)
     }
 

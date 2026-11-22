@@ -37,7 +37,7 @@ export const menuTemplate = (m: AppModel, a: Actions): Array<Electron.MenuItemCo
     check('Auto-answer questions', m.autoAnswer, a.app.setAutoAnswer(!m.autoAnswer)),
     { label: 'Clear  (⌥R)', click: () => a.run(a.app.reset) },
     { type: 'separator' },
-    { label: 'Dictate  (right ⌘ or ⌥D)', click: () => a.run(a.dictation.toggle) },
+    { label: 'Dictate  (right ⌥ or ⌥D)', click: () => a.run(a.dictation.toggle) },
     { type: 'separator' },
     {
       label: 'Transcription language',

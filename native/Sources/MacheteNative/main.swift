@@ -16,7 +16,7 @@ import AVFoundation
 //   {"id":5,"cmd":"dictate.stop","cancel":false}     -> {"id":5,"ok":true,"text":…} (mic only, no AI)
 //   {"id":6,"cmd":"frontmost"}                       -> {"id":6,"ok":true,"name":…,"icon":dataURL}
 //   {"id":7,"cmd":"paste","text":…}                  -> {"id":7,"ok":true|false} (types into the focused app)
-//   {"id":8,"cmd":"rightcmd.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightcmd"} on each lone right-⌘ tap
+//   {"id":8,"cmd":"rightoption.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightoption"} on each lone right-⌥ tap
 // events: {"type":"partial"|"commit","speaker":"me"|"them","text":…}, {"type":"error","message":…}, {"type":"log",…}
 
 let args = CommandLine.arguments
@@ -206,8 +206,8 @@ final class Server {
             let ok = await Dictation.paste(cmd["text"] as? String ?? "")
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "Machete needs Accessibility permission to type into other apps."])
 
-        case "rightcmd.watch":
-            let ok = Dictation.watchRightCommand { Out.emit(["type": "rightcmd"]) }
+        case "rightoption.watch":
+            let ok = Dictation.watchRightOption { Out.emit(["type": "rightoption"]) }
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "input-monitoring"])
 
         case "ping":

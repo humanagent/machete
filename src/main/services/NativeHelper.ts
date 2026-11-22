@@ -31,10 +31,10 @@ export const HelperEvent = Schema.Union([
   Schema.Struct({ type: Schema.Literal('log'), message: Schema.String }),
   Schema.Struct({ type: Schema.Literal('dictation.level'), level: Schema.Number }),
   Schema.Struct({ type: Schema.Literal('dictation.error'), message: Schema.String }),
-  Schema.Struct({ type: Schema.Literal('rightcmd') }),
+  Schema.Struct({ type: Schema.Literal('rightoption') }),
   /** Synthetic: the helper process ended (it is restarted a moment later). */
   Schema.Struct({ type: Schema.Literal('exit') }),
-  /** Synthetic: the helper is back after a restart; anything armed in it (the right ⌘ watch) must be re-armed. */
+  /** Synthetic: the helper is back after a restart; anything armed in it (the right ⌥ watch) must be re-armed. */
   Schema.Struct({ type: Schema.Literal('ready') }),
 ]);
 export type HelperEvent = typeof HelperEvent.Type;
@@ -97,7 +97,7 @@ export interface NativeHelperShape {
   readonly dictateStop: (cancel: boolean) => Effect.Effect<string, HelperError>;
   readonly frontmost: Effect.Effect<{ readonly name: string; readonly icon: string }, HelperError>;
   readonly paste: (text: string) => Effect.Effect<void, HelperError>;
-  readonly watchRightCommand: Effect.Effect<void, HelperError>;
+  readonly watchRightOption: Effect.Effect<void, HelperError>;
   /** What macOS allows right now (a fresh process each time: the long-lived helper caches these). */
   readonly permissionStatus: Effect.Effect<PermissionsSnapshot, HelperError>;
   /** The frontmost System Settings window, if one is open. */
@@ -314,7 +314,7 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
             Effect.map((r) => ({ name: r.name ?? '', icon: r.icon ?? '' })),
           ),
           paste: (text) => request('paste', { text }, Nothing, Duration.seconds(10)).pipe(Effect.asVoid),
-          watchRightCommand: request('rightcmd.watch', {}, Nothing).pipe(Effect.asVoid),
+          watchRightOption: request('rightoption.watch', {}, Nothing).pipe(Effect.asVoid),
           permissionStatus: oneShot(['permissions'], PermissionsSnapshot),
           settingsWindow: oneShot(['settings-window'], SettingsBounds).pipe(
             Effect.map((b) => ({ x: b.X, y: b.Y, width: b.Width, height: b.Height })),

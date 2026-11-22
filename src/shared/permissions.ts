@@ -57,7 +57,7 @@ export const PERMISSIONS: ReadonlyArray<Permission> = [
   {
     key: 'inputMonitoring',
     title: 'Input Monitoring',
-    why: 'Starts dictation when you tap the right ⌘ key.',
+    why: 'Starts dictation when you tap the right ⌥ key.',
     method: 'drag',
     pane: pane('Privacy_ListenEvent'),
   },

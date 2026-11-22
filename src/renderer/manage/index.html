@@ -1,48 +1,53 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; script-src 'self'">
-<title>Machete · Bots</title>
-<link rel="stylesheet" href="../../../assets/icons/icons.css">
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-<div class="split">
-  <aside class="sidebar">
-    <ul class="list" id="list" aria-label="Bots"></ul>
-    <div class="divider"></div>
-    <div class="tools">
-      <button id="add" type="button" aria-label="Add bot">+</button>
-      <button id="remove" type="button" aria-label="Remove bot">−</button>
-    </div>
-  </aside>
-  <div class="vdivider"></div>
-  <main class="detail">
-    <div class="empty" id="empty">Select a bot</div>
-    <div class="editor" id="editor" hidden>
-      <div class="row">
-        <input class="name" id="name" type="text" placeholder="Name" aria-label="Name">
-        <button class="use" id="use" type="button">Use this bot</button>
-      </div>
-      <div class="h">System prompt</div>
-      <div class="cap">How this bot should behave.</div>
-      <textarea id="instructions" aria-label="System prompt"></textarea>
-      <div class="h">Context</div>
-      <div class="cap">Facts it should know: your resume, the job description, product notes…</div>
-      <textarea id="context" aria-label="Context"></textarea>
-      <div class="drop" id="drop">
-        <i class="i-doc-plus"></i>
-        <div class="droptext">
-          <div class="dt">Drop files here to add them to the context</div>
-          <div class="cap" id="note">PDF, Word, TXT, Markdown, RTF — the text is extracted and appended.</div>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; script-src 'self'"
+    />
+    <title>Machete · Bots</title>
+    <link rel="stylesheet" href="../../../assets/icons/icons.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="split">
+      <aside class="sidebar">
+        <ul class="list" id="list" aria-label="Bots"></ul>
+        <div class="divider"></div>
+        <div class="tools">
+          <button id="add" type="button" aria-label="Add bot">+</button>
+          <button id="remove" type="button" aria-label="Remove bot">−</button>
         </div>
-        <div class="spacer"></div>
-        <button class="choose" id="choose" type="button">Choose…</button>
-      </div>
+      </aside>
+      <div class="vdivider"></div>
+      <main class="detail">
+        <div class="empty" id="empty">Select a bot</div>
+        <div class="editor" id="editor" hidden>
+          <div class="row">
+            <input class="name" id="name" type="text" placeholder="Name" aria-label="Name" />
+            <button class="use" id="use" type="button">Use this bot</button>
+          </div>
+          <div class="h">System prompt</div>
+          <div class="cap">How this bot should behave.</div>
+          <textarea id="instructions" aria-label="System prompt"></textarea>
+          <div class="h">Context</div>
+          <div class="cap">Facts it should know: your resume, the job description, product notes…</div>
+          <textarea id="context" aria-label="Context"></textarea>
+          <div class="drop" id="drop">
+            <i class="i-doc-plus"></i>
+            <div class="droptext">
+              <div class="dt">Drop files here to add them to the context</div>
+              <div class="cap" id="note">
+                PDF, Word, TXT, Markdown, RTF — the text is extracted and appended.
+              </div>
+            </div>
+            <div class="spacer"></div>
+            <button class="choose" id="choose" type="button">Choose…</button>
+          </div>
+        </div>
+      </main>
     </div>
-  </main>
-</div>
-<script src="app.js"></script>
-</body>
+    <script src="main.js"></script>
+  </body>
 </html>

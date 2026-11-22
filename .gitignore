@@ -7,3 +7,5 @@ assets/icons/
 assets/trayTemplate*.png
 .build/
 .swiftpm/
+out/
+coverage/

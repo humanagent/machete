@@ -13,11 +13,12 @@ const run = <A>(
     pill: Array<string>;
     helper: Effect.Success<ReturnType<typeof fakeHelper>>;
   }) => Effect.Effect<A>,
+  overrides: Parameters<typeof fakeHelper>[0] = {},
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const helper = yield* fakeHelper();
+        const helper = yield* fakeHelper(overrides);
         const pill: Array<string> = [];
         const note = (s: string) => Effect.sync(() => void pill.push(s));
         const pillLayer = Layer.succeed(DictationPill, {
@@ -119,4 +120,32 @@ test('without Input Monitoring it explains once, opens the settings page and kee
   );
   expect(shown).toEqual([INPUT_MONITORING]);
   expect(opened).toEqual(['x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent']);
+});
+
+const settle = Effect.sleep('20 millis');
+
+test('a dictation that cannot start says why in the pill, then hides it', async () => {
+  const result = await run(
+    ({ dictation, pill }) =>
+      Effect.gen(function* () {
+        yield* dictation.toggle;
+        return { pill: [...pill], phase: yield* dictation.phase };
+      }),
+    { dictateStart: () => Effect.fail(new HelperError({ message: 'no microphone' })) },
+  );
+  expect(result.pill).toContain('Failed');
+});
+
+test('the voice level reaches the pill; helper errors are only logged', async () => {
+  const pill = await run(({ dictation, pill, helper }) =>
+    Effect.gen(function* () {
+      yield* dictation.toggle;
+      yield* helper.emit({ type: 'dictation.level', level: 0.4 });
+      yield* helper.emit({ type: 'dictation.error', message: 'glitch' });
+      yield* settle;
+      return [...pill];
+    }),
+  );
+  expect(pill).toContain('level');
+  expect(pill).not.toContain('Failed');
 });

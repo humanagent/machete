@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>ar.com.machete</string>
+    <key>CFBundleName</key>
+    <string>Machete</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Machete transcribes your microphone so it can answer with conversation context.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Machete transcribes audio on-device to build a live transcript.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Machete reads your screen and system audio to answer questions about what you are looking at.</string>
+</dict>
+</plist>

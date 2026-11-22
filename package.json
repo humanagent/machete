@@ -1,0 +1,92 @@
+{
+  "name": "machete",
+  "productName": "Machete",
+  "version": "0.3.0",
+  "description": "Translucent overlay that sees your screen, listens to the conversation and answers with your ChatGPT plan.",
+  "private": true,
+  "main": "out/main/main.js",
+  "scripts": {
+    "native": "bun scripts/native.ts",
+    "build": "bun scripts/build.ts",
+    "start": "bun run native && bun run build && electron .",
+    "dev": "bun run build && electron .",
+    "typecheck": "bun check",
+    "format": "bun fmt",
+    "lint": "bun check && bun fmt --check",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "verify": "bun run lint && bun run test",
+    "pack": "bun run native && bun scripts/build.ts --production && electron-builder --mac --dir -c.mac.identity=- -c.mac.notarize=false -c.mac.entitlements=scripts/entitlements.adhoc.plist -c.mac.entitlementsInherit=scripts/entitlements.adhoc.plist",
+    "dist": "bun run native && bun scripts/build.ts --production && electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "3.1170.0",
+    "@effect/platform-node": "4.1.4",
+    "@types/bun": "1.4.4",
+    "@types/node": "24.10.1",
+    "effect": "4.1.4",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1",
+    "electron-updater": "6.8.11"
+  },
+  "build": {
+    "appId": "ar.com.machete",
+    "productName": "Machete",
+    "files": [
+      "out/**/*",
+      "!out/**/*.map",
+      "assets/**/*",
+      "!assets/icon.*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "minimumSystemVersion": "14.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "scripts/entitlements.mac.plist",
+      "entitlementsInherit": "scripts/entitlements.mac.plist",
+      "binaries": [
+        "Contents/MacOS/machete-native"
+      ],
+      "notarize": true,
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "Machete transcribes your microphone so it can answer with conversation context.",
+        "NSSpeechRecognitionUsageDescription": "Machete transcribes audio on-device to build a live transcript.",
+        "NSScreenCaptureUsageDescription": "Machete reads your screen and system audio to answer questions about what you are looking at."
+      },
+      "icon": "assets/icon.icns"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "icon": "assets/icon.png",
+    "extraFiles": [
+      {
+        "from": "native/bin",
+        "to": "MacOS",
+        "filter": [
+          "machete-native"
+        ]
+      }
+    ]
+  },
+  "engines": {
+    "bun": ">=1.4"
+  }
+}

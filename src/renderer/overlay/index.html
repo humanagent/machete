@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
+    />
+    <title>Machete</title>
+    <link rel="stylesheet" href="../../../assets/icons/icons.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="panel" class="panel">
+      <div class="bar" id="bar">
+        <button class="back" id="back" type="button">
+          <i class="i-arrow-left" id="backIcon"></i><span class="dot" id="unseen" hidden></span>
+        </button>
+        <div class="rec" id="rec" hidden>
+          <span class="recdot" id="recdot"></span><span class="rectime" id="rectime">0:00</span>
+        </div>
+        <div class="sep" id="recsep" hidden></div>
+        <input class="input" id="input" type="text" spellcheck="false" autocomplete="off" aria-label="Ask" />
+        <button class="go" id="go" type="button" title="Ask about the screen">⌥ ↩</button>
+        <button class="iconbtn" id="follow" type="button">
+          <i class="i-binoculars" id="followIcon"></i>
+        </button>
+        <button class="menubtn" id="bots" type="button"><i class="i-grid"></i></button>
+        <button class="iconbtn" id="capture" type="button">
+          <i class="i-eye-slash" id="captureIcon"></i>
+        </button>
+        <button class="iconbtn" id="record" type="button" title="Record (⌥M)">
+          <i class="i-waveform"></i>
+        </button>
+        <button class="stop" id="stop" type="button" title="Stop recording (⌥M)" hidden><span></span></button>
+      </div>
+      <div class="bodywrap" id="bodywrap" hidden>
+        <div class="hairline"></div>
+        <div class="card" id="card">
+          <div class="scroll" id="scroll">
+            <div class="stack" id="stack">
+              <div class="hero" id="hero" hidden>
+                <div class="hero-title">Connect your ChatGPT plan</div>
+                <div class="hero-sub">Answers use your Plus or Pro subscription. No API key needed.</div>
+                <button class="signin" id="signin" type="button">
+                  <img
+                    class="signin-logo"
+                    id="signinLogo"
+                    src="../../../assets/chatgpt-logo-black.svg"
+                    alt=""
+                  /><span class="spinner dark" id="signinSpin" hidden></span
+                  ><span id="signinText">Sign in with ChatGPT</span>
+                </button>
+                <div class="hero-wait" id="heroWait" hidden>Finish signing in in your browser…</div>
+              </div>
+              <div id="exchanges"></div>
+              <div class="thinking" id="thinking" hidden>
+                <span class="spinner"></span><span id="status">Thinking…</span>
+              </div>
+              <div class="error" id="error" hidden></div>
+              <div class="transcript" id="transcript" hidden></div>
+              <div id="end"></div>
+            </div>
+          </div>
+          <div class="footer" id="footer">
+            <div class="spacer"></div>
+            <button class="plain tbtn" id="tbtn" type="button" hidden>
+              <i class="i-doc-text"></i>Transcript
+            </button>
+            <button class="plain newchat" id="newchat" type="button" hidden>
+              New Chat <span class="key">⌥</span><span class="key">R</span>
+            </button>
+          </div>
+          <div class="grip" id="grip" title="Drag to resize"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>

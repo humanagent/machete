@@ -1,0 +1,9 @@
+[fmt]
+printWidth = 110
+singleQuote = true
+
+[test]
+root = "./test"
+coverageReporter = ["text"]
+coverageSkipTestFiles = true
+coverageThreshold = { lines = 0.85, functions = 0.8 }

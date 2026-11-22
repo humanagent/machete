@@ -20,12 +20,14 @@
     "dist": "bun run native && bun scripts/build.ts --production && electron-builder --mac --publish never"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "3.1170.0",
     "@effect/platform-node": "4.1.4",
     "@types/bun": "1.4.4",
     "@types/node": "24.10.1",
     "effect": "4.1.4",
     "electron": "45.2.3",
-    "electron-builder": "26.18.1"
+    "electron-builder": "26.18.1",
+    "electron-updater": "6.8.11"
   },
   "build": {
     "appId": "ar.com.machete",

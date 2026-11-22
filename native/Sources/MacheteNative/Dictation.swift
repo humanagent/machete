@@ -7,6 +7,11 @@ enum Dictation {
     /// Watches for the right Command key pressed and released on its own (no other key in between).
     /// Needs Input Monitoring or Accessibility; returns false if macOS refuses the event tap.
     @MainActor static func watchRightCommand(_ onTap: @escaping () -> Void) -> Bool {
+        // Without Input Monitoring the tap is created but never receives a key: ask, and report it.
+        guard CGPreflightListenEventAccess() else {
+            CGRequestListenEventAccess()
+            return false
+        }
         RightCommand.onTap = onTap
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,

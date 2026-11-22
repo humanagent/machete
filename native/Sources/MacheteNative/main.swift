@@ -129,7 +129,9 @@ final class Server {
         case "permissions":
             let mic = AVCaptureDevice.authorizationStatus(for: .audio)
             reply(id, ["ok": true, "microphone": mic == .authorized ? "granted" : (mic == .notDetermined ? "not-determined" : "denied"),
-                       "screen": CGPreflightScreenCaptureAccess() ? "granted" : "denied"])
+                       "screen": CGPreflightScreenCaptureAccess() ? "granted" : "denied",
+                       "inputMonitoring": CGPreflightListenEventAccess() ? "granted" : "denied",
+                       "accessibility": Dictation.canType(prompt: false) ? "granted" : "denied"])
 
         case "dictate.start":
             await dictation?.stop()
@@ -171,7 +173,7 @@ final class Server {
 
         case "rightcmd.watch":
             let ok = Dictation.watchRightCommand { Out.emit(["type": "rightcmd"]) }
-            reply(id, ok ? ["ok": true] : ["ok": false, "error": "Input Monitoring permission needed for the right ⌘ key."])
+            reply(id, ok ? ["ok": true] : ["ok": false, "error": "input-monitoring"])
 
         case "ping":
             reply(id, ["ok": true])

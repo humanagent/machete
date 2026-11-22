@@ -149,6 +149,8 @@ export interface AppStateShape {
   // Panel
   /** Opens the card and shows the panel (at launch). */
   readonly openPanel: Effect.Effect<void>;
+  /** Shows a message in the panel, opening it. */
+  readonly showError: (message: string) => Effect.Effect<void>;
   readonly collapseToggle: Effect.Effect<void>;
   readonly toggleTranscript: Effect.Effect<void>;
   readonly focusInput: Effect.Effect<void>;
@@ -713,6 +715,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         ask,
         reset,
         openPanel: reveal,
+        showError: (message) => update((s) => ({ ...s, errorText: message })).pipe(Effect.andThen(reveal)),
         collapseToggle,
         toggleTranscript: update((s) => ({ ...s, showTranscript: !s.showTranscript })),
         focusInput: update((s) => ({ ...s, collapsed: false, focusInputTick: s.focusInputTick + 1 })),

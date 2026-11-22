@@ -140,3 +140,26 @@ describe('the serve protocol, against a stand-in helper', () => {
     );
   });
 });
+
+// Real speech models: slow and they download on first use, so only on a developer Mac.
+describe.skipIf(Option.isNone(binary) || process.env['CI'] !== undefined)(
+  'real transcription (macOS 26)',
+  () => {
+    test('Latin American Spanish comes out word for word, punctuated', async () => {
+      const text = await Effect.runPromise(
+        withTempDir((dir) =>
+          Effect.promise(async () => {
+            const audio = join(dir, 'es.aiff');
+            await Bun.$`say -v Paulina -o ${audio} ${'Necesito que revises el contrato antes del viernes.'}`.quiet();
+            const exe = Option.getOrThrow(binary);
+            return (await Bun.$`${exe} transcribe ${audio} es-419`.quiet().text())
+              .split('\n')
+              .filter((l) => l !== '' && !l.startsWith('{'))
+              .join(' ');
+          }),
+        ),
+      );
+      expect(text).toBe('Necesito que revises el contrato antes del viernes.');
+    }, 60_000);
+  },
+);

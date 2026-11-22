@@ -70,8 +70,8 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
         const front = yield* helper.frontmost.pipe(Effect.orElseSucceed(() => ({ name: '', icon: '' })));
         yield* pill.show(front.name, front.icon);
         yield* pill.captureEscape(cancel);
-        const { language } = yield* app.model;
-        yield* helper.dictateStart(language).pipe(
+        const { dictationLanguage } = yield* app.model;
+        yield* helper.dictateStart(dictationLanguage).pipe(
           Effect.tap(() => Effect.logInfo(`dictation: start (into ${front.name || '?'})`)),
           Effect.catch((e) => failed(e.message)),
         );

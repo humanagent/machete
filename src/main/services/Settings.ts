@@ -8,6 +8,8 @@ import { readJson, writeJson } from './JsonFile';
 export const SettingsData = Schema.Struct({
   glassOpacity: Schema.Number,
   language: Language,
+  /** Dictation has its own language: you often dictate in yours while the call is in another. */
+  dictationLanguage: Language,
   model: Schema.String,
   cardWidth: Schema.Number,
   cardHeight: Schema.Number,
@@ -21,6 +23,7 @@ export type SettingsData = typeof SettingsData.Type;
 export const defaultSettings: SettingsData = {
   glassOpacity: 0.55,
   language: 'en-US',
+  dictationLanguage: 'es-419',
   model: 'gpt-6.2-sol',
   cardWidth: 640,
   cardHeight: 560,

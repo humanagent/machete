@@ -28,9 +28,9 @@ const run = <A>(
           captureEscape: () => note('esc:on'),
           releaseEscape: note('esc:off'),
         });
-        // Dictation only reads the transcription language from the app state.
+        // Dictation only reads its language from the app state.
         const app = Layer.succeed(AppState, {
-          model: Effect.succeed({ language: 'es-ES' } as AppModel),
+          model: Effect.succeed({ dictationLanguage: 'es-419' } as AppModel),
         } as AppStateShape);
         const browser = Layer.succeed(ExternalBrowser, { open: () => Effect.void });
         const layer = Dictation.layer.pipe(
@@ -103,7 +103,7 @@ test('without Input Monitoring it explains once, opens the settings page and kee
           releaseEscape: Effect.void,
         });
         const app = Layer.succeed(AppState, {
-          model: Effect.succeed({ language: 'en-US' } as AppModel),
+          model: Effect.succeed({ dictationLanguage: 'en-US' } as AppModel),
           showError: (m: string) => Effect.sync(() => void shown.push(m)),
         } as AppStateShape);
         const browser = Layer.succeed(ExternalBrowser, {
@@ -148,4 +148,12 @@ test('the voice level reaches the pill; helper errors are only logged', async ()
   );
   expect(pill).toContain('level');
   expect(pill).not.toContain('Failed');
+});
+
+test('dictation listens in its own language, not the call language', async () => {
+  const locales: Array<string> = [];
+  await run(({ dictation }) => dictation.toggle, {
+    dictateStart: (locale) => Effect.sync(() => void locales.push(locale)),
+  });
+  expect(locales).toEqual(['es-419']);
 });

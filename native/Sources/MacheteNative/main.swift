@@ -41,6 +41,17 @@ case "icon":
     do { try SymbolIcon.export(name: args[2], pointSize: pt, scale: scale, weight: weight, to: args[4]) } catch { fail("\(error)") }
     exit(0)
 
+case "transcribe":
+    // Same engine as the app, fed from a file: `transcribe <audio> <locale>`. For tests and tuning.
+    guard args.count > 3 else { fail("usage: machete-native transcribe <audio> <locale>") }
+    let url = URL(fileURLWithPath: args[2])
+    let locale = Locale(identifier: args[3])
+    Task { @MainActor in
+        guard #available(macOS 26.0, *) else { fail("transcribe needs macOS 26") }
+        do { print(try await FileTranscription.run(url, locale: locale)); exit(0) } catch { fail("\(error)") }
+    }
+    dispatchMain()
+
 case "serve":
     if let i = args.firstIndex(of: "--exclude-pid"), i + 1 < args.count, let pid = pid_t(args[i + 1]) {
         Capture.excludedPIDs.insert(pid)
@@ -52,7 +63,7 @@ case "serve":
     app.run()
 
 default:
-    fail("usage: machete-native serve|extract|icon")
+    fail("usage: machete-native serve|extract|icon|transcribe")
 }
 
 @MainActor

@@ -42,6 +42,12 @@ export const menuTemplate = (m: AppModel, a: Actions): Array<Electron.MenuItemCo
       submenu: Languages.map(([code, name]) => check(name, m.language === code, a.app.setLanguage(code))),
     },
     {
+      label: 'Dictation language',
+      submenu: Languages.map(([code, name]) =>
+        check(name, m.dictationLanguage === code, a.app.setDictationLanguage(code)),
+      ),
+    },
+    {
       label: 'Transparency',
       submenu: TRANSPARENCY.map(([v, name]) =>
         check(name, Math.abs(m.glassOpacity - v) < 0.01, a.app.setGlassOpacity(v)),
@@ -68,6 +74,7 @@ const menuKey = (m: AppModel) =>
     m.isListening,
     m.autoAnswer,
     m.language,
+    m.dictationLanguage,
     m.glassOpacity,
     m.model,
     m.models,

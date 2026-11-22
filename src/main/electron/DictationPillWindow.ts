@@ -8,8 +8,8 @@ import { preloadFile, rendererFile } from './paths';
 import { makeRunner } from './Runner';
 
 // The window is the pill (no margin): macOS draws the blur, rounded corners and shadow.
-const WIDTH = 280;
-const HEIGHT = 62;
+const WIDTH = 300;
+const HEIGHT = 70;
 
 export const DictationPillLive = Layer.effect(
   DictationPill,

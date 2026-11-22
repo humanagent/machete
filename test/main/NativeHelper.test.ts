@@ -22,8 +22,8 @@ describe('parseLine', () => {
       Option.some({ _tag: 'Event', event: { type: 'commit', speaker: 'them', text: 'Hi?' } }),
     );
     expect(parseLine('{"type":"commit","speaker":"robot","text":"x"}')).toEqual(Option.none());
-    expect(parseLine('{"type":"rightcmd"}')).toEqual(
-      Option.some({ _tag: 'Event', event: { type: 'rightcmd' } }),
+    expect(parseLine('{"type":"rightoption"}')).toEqual(
+      Option.some({ _tag: 'Event', event: { type: 'rightoption' } }),
     );
   });
   test('garbage is ignored', () => {
@@ -98,7 +98,7 @@ describe('the serve protocol, against a stand-in helper', () => {
         text: h.dictateStop(false),
         front: h.frontmost,
         paste: h.paste('hola'),
-        watch: h.watchRightCommand,
+        watch: h.watchRightOption,
         listen: h.startListening('en-US'),
         pause: h.setPaused(true),
         stop: h.stopListening,

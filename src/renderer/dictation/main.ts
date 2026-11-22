@@ -1,4 +1,4 @@
-// The dictation pill: the app the words will go to, and dots that follow your voice. Click for Finish / Cancel.
+// The dictation pill: the app the words will go to, and thin bars that follow your voice. Click for Finish / Cancel.
 import { Effect, Stream } from 'effect';
 import type { DictationBridge, DictationEvent } from '../../shared/ipc';
 import { byId, fromBridgeAll, runMain } from '../common/runtime';
@@ -9,7 +9,12 @@ declare global {
   }
 }
 
-const DOTS = 24;
+const BARS = 44;
+/** Bars at rest are a short line; the voice level stretches them up to the full height. */
+const REST = 0.2;
+/** How much of the remaining distance a bar covers each frame: lower is smoother. */
+const EASE = 0.22;
+
 const el = {
   pill: byId('pill'),
   icon: byId<HTMLImageElement>('icon'),
@@ -17,18 +22,31 @@ const el = {
   wave: byId('wave'),
   status: byId('status'),
 };
-const dots = Array.from({ length: DOTS }, () => el.wave.appendChild(document.createElement('span')));
-const levels: Array<number> = new Array(DOTS).fill(0);
+const bars = Array.from({ length: BARS }, () => el.wave.appendChild(document.createElement('span')));
+/** Newest level on the right; each level is shown slightly softened by its neighbours. */
+const target: Array<number> = new Array(BARS).fill(0);
+const shown: Array<number> = new Array(BARS).fill(0);
+let frame = 0;
 
-const draw = () =>
-  dots.forEach((dot, i) => {
-    dot.style.height = `${3 + Math.round((levels[i] ?? 0) * 9)}px`;
-  });
+const tick = () => {
+  let moving = false;
+  for (let i = 0; i < BARS; i++) {
+    const soft = ((target[i - 1] ?? target[i]!) + 2 * target[i]! + (target[i + 1] ?? target[i]!)) / 4;
+    const next = shown[i]! + (soft - shown[i]!) * EASE;
+    if (Math.abs(next - shown[i]!) > 0.002) moving = true;
+    shown[i] = next;
+    bars[i]!.style.transform = `scaleY(${REST + (1 - REST) * next})`;
+  }
+  frame = moving ? requestAnimationFrame(tick) : 0;
+};
+const animate = () => {
+  if (frame === 0) frame = requestAnimationFrame(tick);
+};
 
-const showStatus = (text: string, error: boolean) => {
-  el.wave.hidden = true;
-  el.status.hidden = false;
-  el.status.className = error ? 'status err' : 'status';
+const setMode = (mode: 'listening' | 'finishing' | 'failed', text = '') => {
+  el.pill.classList.toggle('finishing', mode !== 'listening');
+  el.status.hidden = mode === 'listening';
+  el.status.className = mode === 'failed' ? 'status err' : 'status shimmer';
   el.status.textContent = text;
 };
 
@@ -39,20 +57,20 @@ const onEvent = (event: DictationEvent) =>
         el.app.textContent = event.app || 'Dictation';
         el.icon.hidden = event.icon === '';
         if (event.icon) el.icon.src = event.icon;
-        el.wave.hidden = false;
-        el.status.hidden = true;
-        levels.fill(0);
-        draw();
+        target.fill(0);
+        shown.fill(0);
+        setMode('listening');
+        animate();
         return;
       case 'Level':
-        levels.shift();
-        levels.push(Math.min(1, event.level));
-        draw();
+        target.shift();
+        target.push(Math.min(1, Math.sqrt(Math.max(0, event.level))));
+        animate();
         return;
       case 'Finishing':
-        return showStatus('Transcribing…', false);
+        return setMode('finishing', 'Transcribing');
       case 'Failed':
-        return showStatus(event.message, true);
+        return setMode('failed', event.message);
     }
   });
 

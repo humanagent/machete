@@ -74,7 +74,7 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       dictateStop: (cancel) => record(`dictate.stop:${cancel}`).pipe(Effect.as(cancel ? '' : 'hola mundo')),
       frontmost: Effect.succeed({ name: 'TextEdit', icon: '' }),
       paste: (text) => Effect.sync(() => void log.typed.push(text)),
-      watchRightCommand: record('rightcmd.watch'),
+      watchRightOption: record('rightoption.watch'),
       permissionStatus: Effect.succeed({
         microphone: 'granted',
         screen: 'granted',

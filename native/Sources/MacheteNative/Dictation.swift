@@ -2,30 +2,30 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-/// Dictation support: the right ⌘ key as a trigger, the app being dictated into, and typing the result there.
+/// Dictation support: the right ⌥ key as a trigger, the app being dictated into, and typing the result there.
 enum Dictation {
-    /// Watches for the right Command key pressed and released on its own (no other key in between).
+    /// Watches for the right Option key pressed and released on its own (no other key in between).
     /// Needs Input Monitoring or Accessibility; returns false if macOS refuses the event tap.
     @MainActor private static var askedForInputMonitoring = false
 
-    @MainActor static func watchRightCommand(_ onTap: @escaping () -> Void) -> Bool {
+    @MainActor static func watchRightOption(_ onTap: @escaping () -> Void) -> Bool {
         // Without Input Monitoring the tap is created but never receives a key: ask once (the app retries,
         // and its permissions guide takes over from there), and report it.
         guard CGPreflightListenEventAccess() else {
             if !askedForInputMonitoring { askedForInputMonitoring = true; CGRequestListenEventAccess() }
             return false
         }
-        RightCommand.onTap = onTap
+        RightOption.onTap = onTap
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
                                           eventsOfInterest: CGEventMask(mask), callback: { _, type, event, _ in
-            RightCommand.handle(type, event)
+            RightOption.handle(type, event)
             return Unmanaged.passUnretained(event)
         }, userInfo: nil) else { return false }
         let src = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        RightCommand.tap = tap
+        RightOption.tap = tap
         return true
     }
 
@@ -83,7 +83,7 @@ enum Dictation {
     }
 }
 
-private enum RightCommand {
+private enum RightOption {
     static var onTap: (() -> Void)?
     static var tap: CFMachPort?
     static var down = false
@@ -97,15 +97,15 @@ private enum RightCommand {
         if type == .keyDown { clean = false; return }
         guard type == .flagsChanged else { return }
         let code = event.getIntegerValueField(.keyboardEventKeycode)
-        if code == 54 { // right Command
-            let pressed = event.flags.contains(.maskCommand)
-            if pressed && !down { down = true; clean = event.flags.intersection([.maskShift, .maskControl, .maskAlternate]).isEmpty }
+        if code == 61 { // right Option
+            let pressed = event.flags.contains(.maskAlternate)
+            if pressed && !down { down = true; clean = event.flags.intersection([.maskShift, .maskControl, .maskCommand]).isEmpty }
             else if !pressed && down {
                 down = false
                 if clean { DispatchQueue.main.async { onTap?() } }
             }
         } else {
-            clean = false // another modifier changed while right ⌘ was held
+            clean = false // another modifier changed while right ⌥ was held
         }
     }
 }

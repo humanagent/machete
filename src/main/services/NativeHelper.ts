@@ -93,13 +93,13 @@ export interface NativeHelperShape {
   readonly extractText: (file: string) => Effect.Effect<Option.Option<string>>;
 }
 
-/** The helper next to the packaged app (Contents/Resources/bin), or the development build under `appRoot`. */
+/** The helper inside the packaged app (Contents/MacOS, same identity as the app), or the development build. */
 export const helperBinary = (appRoot: string): Option.Option<string> => {
   if (process.platform !== 'darwin') return Option.none();
   // Set by Electron in packaged apps (Contents/Resources).
   const resourcesPath = (process as NodeJS.Process & { readonly resourcesPath?: string }).resourcesPath;
   const candidates = [
-    resourcesPath ? join(resourcesPath, 'bin', 'machete-native') : '',
+    resourcesPath ? join(resourcesPath, '..', 'MacOS', 'machete-native') : '',
     join(appRoot, 'native', 'bin', 'machete-native'),
   ];
   return Option.fromNullishOr(candidates.find((p) => p !== '' && existsSync(p)));

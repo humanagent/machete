@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>ar.com.machete.native</string>
+    <string>ar.com.machete</string>
     <key>CFBundleName</key>
     <string>Machete</string>
     <key>NSMicrophoneUsageDescription</key>

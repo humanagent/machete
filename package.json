@@ -16,8 +16,8 @@
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "verify": "bun run lint && bun run test",
-    "pack": "bun run native && bun scripts/build.ts --production && electron-builder --mac --dir",
-    "dist": "bun run native && bun scripts/build.ts --production && electron-builder --mac"
+    "pack": "bun run native && bun scripts/build.ts --production && electron-builder --mac --dir -c.mac.identity=- -c.mac.notarize=false -c.mac.entitlements=scripts/entitlements.adhoc.plist -c.mac.entitlementsInherit=scripts/entitlements.adhoc.plist",
+    "dist": "bun run native && bun scripts/build.ts --production && electron-builder --mac --publish never"
   },
   "devDependencies": {
     "@effect/platform-node": "4.1.4",
@@ -34,35 +34,55 @@
       "out/**/*",
       "!out/**/*.map",
       "assets/**/*",
+      "!assets/icon.*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "native/bin",
-        "to": "bin",
-        "filter": [
-          "machete-native"
-        ]
-      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
-      "identity": null,
-      "hardenedRuntime": false,
+      "minimumSystemVersion": "14.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
       "entitlements": "scripts/entitlements.mac.plist",
+      "entitlementsInherit": "scripts/entitlements.mac.plist",
+      "binaries": [
+        "Contents/MacOS/machete-native"
+      ],
+      "notarize": true,
       "extendInfo": {
         "LSUIElement": true,
         "NSMicrophoneUsageDescription": "Machete transcribes your microphone so it can answer with conversation context.",
         "NSSpeechRecognitionUsageDescription": "Machete transcribes audio on-device to build a live transcript.",
         "NSScreenCaptureUsageDescription": "Machete reads your screen and system audio to answer questions about what you are looking at."
-      }
+      },
+      "icon": "assets/icon.icns"
     },
     "directories": {
       "output": "dist"
-    }
+    },
+    "icon": "assets/icon.png",
+    "extraFiles": [
+      {
+        "from": "native/bin",
+        "to": "MacOS",
+        "filter": [
+          "machete-native"
+        ]
+      }
+    ]
   },
   "engines": {
     "bun": ">=1.4"

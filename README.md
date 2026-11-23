@@ -1,6 +1,15 @@
 # Machete
 
-A minimal, translucent overlay that sees your screen, listens to your conversation, and answers using **your ChatGPT plan** via [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart). Built with Electron; macOS today, Windows next.
+A suite of small Mac tools in one menu bar app, built with Electron; macOS today, Windows next.
+
+- **Copilot**: a minimal, translucent overlay that sees your screen, listens to your conversation, and answers using **your ChatGPT plan** via [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart).
+- **Dictation**: speak, and the words are typed into the app you're in.
+- **Windows**: snap the focused window left, right or full screen.
+- **Clipboard**: a searchable history of what you copied.
+- **Snippets**: abbreviations that become text as you type, in any app.
+- **Rewrite**: fixes or rewrites the text you selected, in any app.
+- **Screenshots**: the screen or an area, with a frame around it if you want.
+- **Calculator**: a notepad that calculates as you type (`$20 in eur - 5%`, `20 inches in cm`).
 
 ## Features
 
@@ -10,19 +19,32 @@ A minimal, translucent overlay that sees your screen, listens to your conversati
 - **Follow mode**: watches the screen and the conversation and only speaks up when you make a mistake, without reopening a hidden panel.
 - **Recording**: on-device transcription of your mic ("Me") and system audio ("Them"); the transcript is sent as context with every question. Optional auto-answer when the other side asks a question.
 - **Uses your ChatGPT subscription**: Sign in with ChatGPT (OAuth with PKCE, loopback redirect), streaming Responses API requests billed to your Plus/Pro plan. Signing in is required.
+- **Windows**: ⌃A, ⌃D and ⌃W put the focused window on the left half, the right half or the whole screen (needs Accessibility).
+- **Clipboard history**: ⇧⌘V lists the last 200 texts you copied; type to filter, ↩ or ⌘1–9 pastes into the app you're in, ⌥⌫ deletes. Text only; what password managers mark as concealed is never kept.
+- **Snippets**: type an abbreviation in any app and it becomes its text (at the start of a word, or anywhere if it starts with a symbol like `;`). ⇧⌘C searches, pastes and edits them; imports the Mac's own text replacements. Needs Input Monitoring and Accessibility.
+- **Rewrite**: select text in any app and press ⇧⌘G: ChatGPT fixes spelling and grammar in place. ⌥⇧⌘G opens a panel with more (improve, shorter, formal, friendlier, translate) or any instruction you type. ⌘Z brings the original back. The selected text is sent to ChatGPT only when you press it; needs Accessibility and being signed in. In terminals the result is copied instead of pasted.
+- **Screenshots**: ⇧⌘3 takes the screen with the pointer, ⇧⌘4 an area (Space picks a window, Esc cancels). Each one floats at the bottom left until you copy it, save it to the Desktop, drag it into an app or close it. Click it to open the editor, which adds a frame: your wallpaper or a color behind it, rounded corners and a shadow. Needs Screen Recording.
+- **Calculator**: ⇧⌘D opens a sheet where every line shows its result: arithmetic, percentages (`15% of 200`, `200 + 10%`), units (`5 kg in lb`, `100 °F in °C`), currencies with daily rates (`100 usd in ars`), variables (`rent = 1200`), `prev`, `sum`, `# headings`, `Label: 3 * 4`. Click a result to copy it.
 - **Private overlay**: always starts hidden from screenshots and screen shares; the eye shows it for the current session. No Dock icon, resizable by dragging its edges.
 
 ## Shortcuts
 
-| Keys          | Action                         |
-| ------------- | ------------------------------ |
-| ⌥↩            | Ask about the screen           |
-| ⌥S            | What should I say?             |
-| ⌥Space        | Type a question                |
-| ⌥M            | Start / stop recording         |
-| ⌘[ or ⌥\      | Show / hide                    |
-| ⌥R            | New chat                       |
-| right ⌘ or ⌥D | Dictate into the app you're in |
+| Keys          | Action                          |
+| ------------- | ------------------------------- |
+| ⌥↩            | Ask about the screen            |
+| ⌥S            | What should I say?              |
+| ⌥Space        | Type a question                 |
+| ⌥M            | Start / stop recording          |
+| ⌘[ or ⌥\      | Show / hide                     |
+| ⌥R            | New chat                        |
+| right ⌥ or ⌥D | Dictate into the app you're in  |
+| ⌃A / ⌃D       | Window to the left / right half |
+| ⌃W            | Window full screen              |
+| ⇧⌘G / ⌥⇧⌘G    | Fix / rewrite the selected text |
+| ⇧⌘3 / ⇧⌘4     | Screenshot: screen / area       |
+| ⇧⌘V           | Clipboard history               |
+| ⇧⌘C           | Snippets                        |
+| ⇧⌘D           | Calculator                      |
 
 ## Develop
 
@@ -53,30 +75,30 @@ A real release is signed with a **Developer ID Application** certificate and **n
 
 ```
 src/
-  shared/      pure code used everywhere
-    domain.ts      schemas of the model (exchanges, transcript, bots, the overlay state)
-    ipc.ts         the IPC contract: Schema.TaggedUnion commands and replies per window
-    logic.ts       prompt building, follow-mode silence, question detection
-    markdown.ts    answer text → HTML
-    strings.ts     prompts, default bots, presets
-  main/        the Electron main process: one Effect program from app-ready to quit
-    services/      the app, independent of Electron (unit tested)
-      AppState       the state machine: SubscriptionRef state; asks, Follow and auto-answer as fibers
-      ChatGpt        Responses API over effect/http, streamed with Stream
-      Auth           Sign in with ChatGPT: PKCE, loopback redirect, token refresh (single-flight)
-      NativeHelper   the macOS helper over effect/process: JSON-lines protocol, events on a PubSub
-      Dictation      speak → typed into the focused app (talks to the pill through a port)
-      Settings, ProfileStore, ContextFiles, FileLogger, AppPaths
-    electron/      adapters: overlay, Bots window, dictation pill, menu bar, shortcuts
-    main.ts        the layer graph and Electron's lifecycle (quit interrupts the program, finalizers run)
-  preload/     typed contextBridge APIs (no Effect, a few hundred bytes each)
-  renderer/    one Effect program per window: state stream in, typed commands out
-native/        machete-native, Swift: ScreenCaptureKit, SpeechAnalyzer, PDFKit, the right-⌘ tap
-scripts/       build.ts (Bun.build) and native.ts (Bun Shell)
-test/          bun test: pure logic, every service with fakes or temp folders, the real helper, the bundle
+  main.ts      the layer graph and Electron's lifecycle (quit interrupts the program, finalizers run)
+  core/        what every product shares
+    domain.ts, ipc.ts, channels.ts, permissions.ts   shared schemas and the permissions guide's contract
+    services/      NativeHelper (the macOS helper: JSON lines, events on a PubSub), Auth (Sign in with ChatGPT),
+                   ChatGpt (Responses API, streamed), Settings, AppPaths, JsonFile, FileLogger, PermissionsGuide
+    electron/      menu bar, permissions window, `hotkeys` (each product registers its own), paths, Runner
+    preload/, renderer/   the permissions guide's window and the renderer runtime
+  products/    one folder per product; each holds its services, Electron adapters, preloads and renderers
+    copilot/       the overlay and Bots window: AppState (asks, Follow, auto-answer), ProfileStore, ContextFiles,
+                   domain.ts / ipc.ts / logic.ts / strings.ts / markdown.ts
+    dictation/     Dictation (speak → typed into the focused app) and its pill
+    windows/       ⌃A / ⌃D / ⌃W snapping
+    clipboard/     ClipboardHistory (clipboard.json) and the ⇧⌘V picker; history.ts is the pure part
+    rewrite/       presets.ts (the instructions), Rewrite (read, ask, replace), the ⌥⇧⌘G panel
+    screenshot/    Screenshots (macOS's screencapture), frame.ts (the frame, pure), the floating previews and the editor
+    calculator/    evaluate.ts (the parser, pure), Calculator (calculator.json: the sheet and daily rates), the ⇧⌘D panel
+    snippets/      Snippets (snippets.json, synced to the helper's keyboard watch) and the ⇧⌘C panel
+native/        machete-native, Swift, same split: Core/, Speech/ (shared transcription), Copilot/, Dictation/,
+               Windows/, Clipboard/, Snippets/; main.swift is the JSON-lines server
+scripts/       build.ts (Bun.build; the WINDOWS map says where each window lives) and native.ts (Bun Shell)
+test/          bun test, mirroring src: core/, products/<name>/, plus the real helper and the bundle
 ```
 
-Data lives in `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`; Chromium's data in `electron/`). Logs go to `~/Library/Logs/Machete.log` (diagnostics only, never audio or transcript text).
+Data lives in `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`, `clipboard.json`, `snippets.json`, `calculator.json`; Chromium's data in `electron/`). Logs go to `~/Library/Logs/Machete.log` (diagnostics only, never audio or transcript text).
 
 ## Windows (next)
 

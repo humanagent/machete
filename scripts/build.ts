@@ -6,7 +6,29 @@ import { Console, Effect } from 'effect';
 const root = new URL('..', import.meta.url).pathname;
 const out = `${root}out`;
 const production = process.argv.includes('--production');
-const WINDOWS = ['overlay', 'manage', 'dictation', 'permissions'] as const;
+/** Each window's folder: its preload and its renderer (main.ts, index.html, styles). Products own their windows. */
+const WINDOWS = {
+  permissions: { preload: 'core/preload/permissions.ts', renderer: 'core/renderer/permissions' },
+  overlay: { preload: 'products/copilot/preload/overlay.ts', renderer: 'products/copilot/renderer/overlay' },
+  manage: { preload: 'products/copilot/preload/manage.ts', renderer: 'products/copilot/renderer/manage' },
+  dictation: { preload: 'products/dictation/preload/dictation.ts', renderer: 'products/dictation/renderer' },
+  calculator: {
+    preload: 'products/calculator/preload/calculator.ts',
+    renderer: 'products/calculator/renderer',
+  },
+  snippets: { preload: 'products/snippets/preload/snippets.ts', renderer: 'products/snippets/renderer' },
+  rewrite: { preload: 'products/rewrite/preload/rewrite.ts', renderer: 'products/rewrite/renderer' },
+  previews: {
+    preload: 'products/screenshot/preload/previews.ts',
+    renderer: 'products/screenshot/renderer/previews',
+  },
+  editor: {
+    preload: 'products/screenshot/preload/editor.ts',
+    renderer: 'products/screenshot/renderer/editor',
+  },
+  clipboard: { preload: 'products/clipboard/preload/clipboard.ts', renderer: 'products/clipboard/renderer' },
+} as const;
+const names = Object.keys(WINDOWS) as Array<keyof typeof WINDOWS>;
 
 class BuildFailed extends Error {}
 
@@ -32,22 +54,24 @@ const program = Effect.gen(function* () {
   yield* Effect.all(
     [
       bundle({
-        entrypoints: [`${root}src/main/main.ts`],
+        entrypoints: [`${root}src/main.ts`],
         outdir: `${out}/main`,
         target: 'node',
         format: 'cjs',
         external: ['electron'],
       }),
       bundle({
-        entrypoints: WINDOWS.map((n) => `${root}src/preload/${n}.ts`),
+        entrypoints: names.map((n) => `${root}src/${WINDOWS[n].preload}`),
         outdir: `${out}/preload`,
+        // Flat: out/preload/<window>.js, wherever the product keeps it.
+        naming: '[name].[ext]',
         target: 'node',
         format: 'cjs',
         external: ['electron'],
       }),
-      ...WINDOWS.map((name) =>
+      ...names.map((name) =>
         bundle({
-          entrypoints: [`${root}src/renderer/${name}/main.ts`],
+          entrypoints: [`${root}src/${WINDOWS[name].renderer}/main.ts`],
           outdir: `${out}/renderer/${name}`,
           target: 'browser',
           format: 'iife',
@@ -56,9 +80,9 @@ const program = Effect.gen(function* () {
     ],
     { concurrency: 'unbounded' },
   );
-  yield* Effect.forEach(WINDOWS, (name) =>
+  yield* Effect.forEach(names, (name) =>
     Effect.promise(() =>
-      cp(`${root}src/renderer/${name}`, `${out}/renderer/${name}`, {
+      cp(`${root}src/${WINDOWS[name].renderer}`, `${out}/renderer/${name}`, {
         recursive: true,
         filter: (src) => !src.endsWith('.ts'),
       }),

@@ -31,7 +31,9 @@ import { Settings } from '../../../core/services/Settings';
 const CAPTURE_TIMEOUT =
   'Screen capture timed out. Grant Screen Recording to Machete in System Settings ▸ Privacy & Security, then reopen the app.';
 const ANSWER_TIMEOUT = 'ChatGPT took too long to answer. Try again.';
-const MAX_LINES = 400;
+/** Hours of conversation (a dense one is some 15 lines a minute), so a long meeting keeps its beginning. */
+export const MAX_LINES = 5000;
+export const MAX_EXCHANGES = 100;
 const FOLLOW_EVERY = Duration.seconds(3);
 const FOLLOW_MIN_GAP_MS = 20_000;
 const FOLLOW_SCREEN_CHANGE = 12;
@@ -114,6 +116,18 @@ export const copilotState = (m: AppModel): CopilotState => ({
   currentProfileName: currentProfile(m)?.name ?? '',
   focusInputTick: m.focusInputTick,
 });
+
+/** What the panel draws. While recording it shows neither the transcript nor the words in progress, so several
+ * updates a second don't reach it at all. */
+export const panelState = (m: AppModel): CopilotState => {
+  const s = copilotState(m);
+  return m.isListening ? { ...s, lines: NO_LINES, partialMe: '', partialThem: '' } : s;
+};
+const NO_LINES: ReadonlyArray<TranscriptLine> = [];
+
+/** Same values in every field. */
+export const sameState = (a: CopilotState, b: CopilotState): boolean =>
+  (Object.keys(a) as Array<keyof CopilotState>).every((k) => a[k] === b[k]);
 
 export const botsState = (m: AppModel): BotsState => ({
   profiles: m.profiles,
@@ -226,7 +240,11 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
       const askFiber = yield* FiberHandle.make<void, never>();
       const followFiber = yield* FiberHandle.make<void, never>();
       const autoFiber = yield* FiberHandle.make<void, never>();
-      const followMemory = yield* Ref.make({ fingerprint: [] as ReadonlyArray<number>, at: 0, lineCount: 0 });
+      const followMemory = yield* Ref.make({
+        fingerprint: [] as ReadonlyArray<number>,
+        at: 0,
+        lastLine: undefined as string | undefined,
+      });
 
       const update = (f: (m: AppModel) => AppModel) => SubscriptionRef.update(state, f);
       const get = SubscriptionRef.get(state);
@@ -244,6 +262,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         );
       const patchExchange = (id: string, f: (e: Exchange) => Exchange) =>
         update((m) => ({ ...m, exchanges: m.exchanges.map((e) => (e.id === id ? f(e) : e)) }));
+      /** A Follow check replaced before it answered: nothing of it shows. */
+      const abandonedFollow = (e: Exchange) => e.isFollow && !e.done && e.answer == null;
       const reveal = update((m) => ({ ...m, cardOpen: true, collapsed: false })).pipe(
         Effect.andThen(showPanel('ask')),
       );
@@ -288,7 +308,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
             isThinking: !r.isFollow,
             followBusy: r.isFollow,
             status: 'Capturing screen…',
-            exchanges: [...s.exchanges, exchange],
+            exchanges: [...s.exchanges.filter((e) => !abandonedFollow(e)), exchange].slice(-MAX_EXCHANGES),
           }));
 
           const request = Effect.gen(function* () {
@@ -540,12 +560,12 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         const screenChanged =
           memory.fingerprint.length === 0 ||
           Logic.fingerprintDifference(fingerprint.value, memory.fingerprint) > FOLLOW_SCREEN_CHANGE;
-        const newSpeech = m.lines.length > memory.lineCount;
+        const newSpeech = Logic.newSpeech(m.lines, memory.lastLine);
         if (!screenChanged && !newSpeech) return;
         yield* Ref.set(followMemory, {
           fingerprint: fingerprint.value,
           at: Date.now(),
-          lineCount: m.lines.length,
+          lastLine: m.lines.at(-1)?.id,
         });
         yield* Effect.logInfo(`follow: tick screenChanged=${screenChanged} newSpeech=${newSpeech}`);
         yield* startRun({
@@ -569,7 +589,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           }
           yield* update((s) => ({ ...s, followMode: on }));
           if (!on) return;
-          yield* Ref.set(followMemory, { fingerprint: [], at: 0, lineCount: 0 });
+          yield* Ref.set(followMemory, { fingerprint: [], at: 0, lastLine: undefined });
           if (!(yield* get).isListening) yield* startListening; // Follow listens to the conversation too
           yield* FiberHandle.run(
             followFiber,

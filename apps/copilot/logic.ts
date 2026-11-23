@@ -85,6 +85,15 @@ export const fingerprintDifference = (a: ReadonlyArray<number>, b: ReadonlyArray
   return sum / a.length;
 };
 
+/** Whether something was said since `lastLine`. By id: the count stops growing at the cap, and starts over on New chat. */
+export const newSpeech = (
+  lines: ReadonlyArray<Pick<TranscriptLine, 'id'>>,
+  lastLine: string | undefined,
+): boolean => {
+  const last = lines.at(-1)?.id;
+  return last !== undefined && last !== lastLine;
+};
+
 /** m:ss */
 export const clock = (secs: number): string =>
   `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;

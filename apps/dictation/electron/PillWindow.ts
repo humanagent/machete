@@ -9,77 +9,109 @@ import { preloadFile, rendererFile } from '../../../core/electron/paths';
 import { placeOnActive } from '../../../core/electron/ActiveScreen';
 import { pillGlass } from '../../../core/glass';
 import { setGlass } from '../../../core/electron/Glass';
+import { hideWindow, releaseWhenIdle } from '../../../core/electron/Idle';
 import { makeRunner } from '../../../core/electron/Runner';
 
 // The window is the pill (no margin): macOS draws the blur, rounded corners and shadow.
 const WIDTH = 300;
 const HEIGHT = 70;
 
+/** How long a hidden pill keeps its process: dictations come in bursts. */
+const IDLE_MS = 5 * 60_000;
+
+const create = () => {
+  const w = new BrowserWindow({
+    width: WIDTH,
+    height: HEIGHT,
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: true,
+    focusable: false,
+    ...(process.platform === 'darwin'
+      ? { vibrancy: 'hud' as const, visualEffectState: 'active' as const, roundedCorners: true }
+      : {}),
+    acceptFirstMouse: true,
+    alwaysOnTop: true,
+    ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
+    hiddenInMissionControl: true,
+    webPreferences: {
+      preload: preloadFile('dictation'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  w.setAlwaysOnTop(true, 'status');
+  w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  w.setContentProtection(true);
+  // Not while it's being made: the first time it shows.
+  w.once('show', () => setGlass(w, pillGlass));
+  w.webContents.on('render-process-gone', () => w.isDestroyed() || w.destroy());
+  return w;
+};
+
 export const DictationPillLive = Layer.effect(
   DictationPill,
   Effect.gen(function* () {
-    const win = yield* Effect.acquireRelease(
-      Effect.sync(() => {
-        const w = new BrowserWindow({
-          width: WIDTH,
-          height: HEIGHT,
-          show: false,
-          frame: false,
-          transparent: true,
-          backgroundColor: '#00000000',
-          resizable: false,
-          movable: false,
-          minimizable: false,
-          maximizable: false,
-          fullscreenable: false,
-          skipTaskbar: true,
-          hasShadow: true,
-          focusable: false,
-          ...(process.platform === 'darwin'
-            ? { vibrancy: 'hud' as const, visualEffectState: 'active' as const, roundedCorners: true }
-            : {}),
-          acceptFirstMouse: true,
-          alwaysOnTop: true,
-          ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
-          hiddenInMissionControl: true,
-          webPreferences: {
-            preload: preloadFile('dictation'),
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true,
-          },
-        });
-        w.setAlwaysOnTop(true, 'status');
-        w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-        w.setContentProtection(true);
-        // Not while Machete opens: the first time you dictate.
-        w.once('show', () => setGlass(w, pillGlass));
-        void w.loadFile(rendererFile('dictation'));
-        return w;
-      }),
-      (w) => Effect.sync(() => w.isDestroyed() || w.destroy()),
-    );
+    let win: BrowserWindow | undefined;
+    let loaded = false;
+    /** What it shows now, or will once its page loads: showing it never waits, so the microphone doesn't either. */
+    let showing: { readonly app: string; readonly icon: string } | undefined;
+    /** The last thing said over it (Finishing, Failed…), for a page that is still loading. */
+    let said: DictationEvent | undefined;
+    yield* Effect.addFinalizer(() => Effect.sync(() => win?.isDestroyed() || win?.destroy()));
 
-    const ready = Effect.callback<void>((resume) => {
-      if (!win.webContents.isLoading()) resume(Effect.void);
-      else win.webContents.once('did-finish-load', () => resume(Effect.void));
-    });
-    const send = (event: DictationEvent) =>
-      Effect.sync(() => {
-        if (!win.isDestroyed()) win.webContents.send(Channels.dictationEvent, event);
+    const post = (event: DictationEvent) => {
+      if (win && loaded && !win.isDestroyed()) win.webContents.send(Channels.dictationEvent, event);
+    };
+    const present = () => {
+      if (!win || win.isDestroyed() || !loaded || !showing) return;
+      placeOnActive(win, 'bottom', { width: WIDTH, height: HEIGHT });
+      post({ _tag: 'Show', ...showing });
+      if (said) post(said);
+      win.showInactive();
+    };
+    const open = () => {
+      if (win && !win.isDestroyed()) return present();
+      const w = create();
+      win = w;
+      loaded = false;
+      releaseWhenIdle(w, IDLE_MS);
+      w.on('closed', () => {
+        if (win === w) win = undefined;
       });
+      w.webContents.once('did-finish-load', () => {
+        if (win !== w) return;
+        loaded = true;
+        present();
+      });
+      void w.loadFile(rendererFile('dictation')).catch(() => w.isDestroyed() || w.destroy());
+    };
 
     return {
       show: (app, icon) =>
-        Effect.gen(function* () {
-          placeOnActive(win, 'bottom', { width: WIDTH, height: HEIGHT });
-          yield* ready;
-          yield* send({ _tag: 'Show', app, icon });
-          win.showInactive();
+        Effect.sync(() => {
+          showing = { app, icon };
+          said = undefined;
+          open();
         }),
-      send,
+      send: (event) =>
+        Effect.sync(() => {
+          if (event._tag !== 'Level') said = event;
+          post(event);
+        }),
       hide: Effect.sync(() => {
-        if (!win.isDestroyed()) win.hide();
+        showing = undefined;
+        said = undefined;
+        if (win) hideWindow(win);
       }),
       captureEscape: (onEscape) =>
         makeRunner<never>().pipe(

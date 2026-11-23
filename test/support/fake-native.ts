@@ -1,8 +1,10 @@
 #!/usr/bin/env bun
 // A stand-in for machete-native: speaks the same JSON-lines `serve` protocol, so the real NativeHelper layer
 // can be tested on any machine. FAKE_NATIVE=fail|bare|garbled makes every reply an error, an error without
-// a message, or a reply of the wrong shape; `listen.start` also emits events.
+// a message, or a reply of the wrong shape; `listen.start` also emits events
+// (FAKE_NATIVE_MEETING=60: a whole meeting of that many minutes).
 import { createInterface } from 'node:readline';
+import { meeting } from './meeting';
 
 const out = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
 const replies: Record<string, Record<string, unknown>> = {
@@ -35,6 +37,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     out({ type: 'log', message: 'listening' });
     out({ type: 'commit', speaker: 'them', text: 'Hi?' });
     out('not an object');
+    for (const event of meeting(Number(process.env['FAKE_NATIVE_MEETING'] ?? 0))) out(event);
   }
   if (id === undefined) continue;
   if (mode === 'fail') out({ id, ok: false, error: 'it broke' });

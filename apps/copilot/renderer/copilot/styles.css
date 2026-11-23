@@ -371,6 +371,9 @@ button {
   color: var(--text-dim);
 }
 .trow {
+  /* Rows out of view cost nothing: a long meeting has hundreds. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
   display: flex;
   align-items: flex-start;
 }

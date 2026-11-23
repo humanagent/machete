@@ -3,7 +3,14 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Effect, Layer, Ref, Stream } from 'effect';
 import { ChatGptError } from '../../../core/errors';
-import { AppState, copilotState } from '../../../apps/copilot/services/AppState';
+import {
+  AppState,
+  copilotState,
+  MAX_EXCHANGES,
+  MAX_LINES,
+  panelState,
+  sameState,
+} from '../../../apps/copilot/services/AppState';
 import { Auth } from '../../../core/services/Auth';
 import { type AskRequest, ChatGpt } from '../../../core/services/ChatGpt';
 import { ContextFiles } from '../../../apps/copilot/services/ContextFiles';
@@ -11,6 +18,7 @@ import { ProfileStore } from '../../../apps/copilot/services/ProfileStore';
 import { Settings } from '../../../core/services/Settings';
 import { Strings } from '../../../apps/copilot/strings';
 import { fakeHelper, filesAt, withTempDir } from '../../support/fakes';
+import { linesOf, lineText, play } from '../../support/meeting';
 
 type Answerer = (request: AskRequest) => Effect.Effect<string, ChatGptError>;
 
@@ -237,6 +245,105 @@ describe('listening, auto-answer and Follow', () => {
     expect(result.quiet.exchanges).toEqual([]);
     expect(result.quiet.followMode).toBe(true);
     expect(result.calls).toContain('listen.start');
+  });
+});
+
+describe('a long recording', () => {
+  for (const minutes of [30, 60])
+    test(`${minutes} minutes: nothing is lost, and the panel hears nothing until it ends`, async () => {
+      const result = await harness(({ app, helper }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            yield* app.setAutoAnswer(false);
+            yield* app.toggleListening;
+            let updates = 0;
+            let heaviest = 0;
+            yield* app.changes.pipe(
+              Stream.map(panelState),
+              Stream.changesWith(sameState),
+              Stream.runForEach((s) =>
+                Effect.sync(() => {
+                  updates++;
+                  if (s.isListening) heaviest = Math.max(heaviest, JSON.stringify(s).length);
+                }),
+              ),
+              Effect.forkScoped,
+            );
+            yield* Effect.sleep('20 millis');
+            yield* play(minutes, helper.emit);
+            yield* waitFor(app, (s) => s.lines.length === linesOf(minutes));
+            const during = updates;
+            yield* app.toggleListening;
+            yield* Effect.sleep('20 millis');
+            return { during, heaviest, lines: panelState(yield* app.model).lines };
+          }),
+        ),
+      );
+      // Some 230 events a minute come in; none of them reaches the panel.
+      expect(result.during).toBe(1);
+      expect(result.heaviest).toBeLessThan(2000);
+      expect(result.lines.map((l) => l.text)).toEqual(
+        Array.from({ length: linesOf(minutes) }, (_, i) => lineText(i)),
+      );
+    }, 30_000);
+
+  test('60 minutes with an answer every minute: memory stays flat and each question stays the same size', async () => {
+    const heap = () => {
+      Bun.gc(true);
+      return process.memoryUsage().heapUsed / 1e6;
+    };
+    const result = await harness(({ app, helper, asks }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleListening;
+        const at = new Map<number, number>();
+        yield* play(60, helper.emit, (minute) =>
+          Effect.gen(function* () {
+            yield* app.setQuestion(`question ${minute}`);
+            yield* app.ask();
+            yield* waitFor(app, (x) => x.exchanges.some((e) => e.ask === `question ${minute}` && e.done));
+            if (minute === 20 || minute === 60) at.set(minute, heap());
+          }),
+        );
+        const lengths = asks.map((a) => a.text.length);
+        asks.length = 0;
+        return { growth: at.get(60)! - at.get(20)!, lengths };
+      }),
+    );
+    expect(result.lengths.length).toBe(60);
+    // 40 more minutes of transcript are less than half a megabyte; the rest of the room is the collector's.
+    expect(result.growth).toBeLessThan(12);
+    expect(result.lengths.at(-1)!).toBeLessThan(result.lengths[29]! * 1.1);
+  }, 60_000);
+
+  test('past the cap only the oldest lines go', async () => {
+    const extra = 50;
+    const lines = await harness(({ app, helper }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleListening;
+        const minutes = Math.ceil((MAX_LINES + extra) / linesOf(1));
+        yield* play(minutes, helper.emit);
+        yield* waitFor(app, (s) => s.lines.at(-1)?.text === lineText(linesOf(minutes) - 1));
+        return (yield* app.model).lines;
+      }),
+    );
+    expect(lines.length).toBe(MAX_LINES);
+  }, 60_000);
+
+  test('the chat keeps a fixed number of answers, the newest', async () => {
+    const s = await harness(({ app }) =>
+      Effect.gen(function* () {
+        for (let i = 0; i < MAX_EXCHANGES + 5; i++) {
+          yield* app.setQuestion(`q${i}`);
+          yield* app.ask();
+          yield* waitFor(app, (x) => x.exchanges.some((e) => e.ask === `q${i}` && e.done));
+        }
+        return copilotState(yield* app.model);
+      }),
+    );
+    expect(s.exchanges.length).toBe(MAX_EXCHANGES);
+    expect(s.exchanges.at(-1)?.ask).toBe(`q${MAX_EXCHANGES + 4}`);
   });
 });
 

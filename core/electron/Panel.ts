@@ -2,11 +2,12 @@
 // focus and whatever you pick is typed right there. Built on first use, hidden when it loses focus, hidden
 // from screen sharing.
 import { BrowserWindow } from 'electron';
-import { Effect, Option, Ref, type Scope } from 'effect';
+import { Effect, Option, Ref, type Scope, Semaphore } from 'effect';
 import { draggedTo, type Point } from '../place';
 import { placeOnActive } from './ActiveScreen';
 import { panelGlass } from '../glass';
 import { setGlass } from './Glass';
+import { hideWindow, releaseWhenIdle } from './Idle';
 import { preloadFile, rendererFile, type Window } from './paths';
 
 /** How long a closed panel keeps its process, so opening it again is instant. */
@@ -25,6 +26,7 @@ export interface Panel {
 export const makePanel = (
   name: Window,
   size: { readonly width: number; readonly height: number },
+  idleMs = IDLE_MS,
 ): Effect.Effect<Panel, never, Scope.Scope> =>
   Effect.gen(function* () {
     const current = yield* Ref.make<Option.Option<BrowserWindow>>(Option.none());
@@ -69,15 +71,13 @@ export const makePanel = (
       w.setAlwaysOnTop(true, 'pop-up-menu');
       w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
       w.setContentProtection(true);
-      w.on('blur', () => keep || w.hide());
-      // Closed for a while, its process goes; it's made again the next time.
-      let idle: ReturnType<typeof setTimeout> | undefined;
-      w.on('show', () => clearTimeout(idle));
-      w.on('hide', () => {
-        clearTimeout(idle);
-        idle = setTimeout(() => w.isDestroyed() || w.isVisible() || w.destroy(), IDLE_MS);
+      w.on('blur', () => keep || hideWindow(w));
+      releaseWhenIdle(w, idleMs);
+      // A page that can't load, or died: the next time it's opened there's a new one.
+      w.on('closed', () => {
+        resume(Effect.die(new Error(`${name}: its window closed before it loaded`)));
       });
-      w.on('closed', () => clearTimeout(idle));
+      w.webContents.on('render-process-gone', () => w.isDestroyed() || w.destroy());
       w.on('moved', () => {
         dragged = draggedTo(w.getBounds(), ours, dragged);
       });
@@ -85,16 +85,20 @@ export const makePanel = (
         setGlass(w, panelGlass);
         resume(Effect.succeed(w));
       });
-      void w.loadFile(rendererFile(name));
+      void w.loadFile(rendererFile(name)).catch(() => w.isDestroyed() || w.destroy());
     });
 
-    const window = Effect.gen(function* () {
-      const existing = (yield* Ref.get(current)).pipe(Option.filter((w) => !w.isDestroyed()));
-      if (Option.isSome(existing)) return existing.value;
-      const w = yield* create;
-      yield* Ref.set(current, Option.some(w));
-      return w;
-    });
+    const lock = yield* Semaphore.make(1);
+    // One at a time: two presses while the page loads would make two windows, and nothing would close the first.
+    const window = lock.withPermit(
+      Effect.gen(function* () {
+        const existing = (yield* Ref.get(current)).pipe(Option.filter((w) => !w.isDestroyed()));
+        if (Option.isSome(existing)) return existing.value;
+        const w = yield* create;
+        yield* Ref.set(current, Option.some(w));
+        return w;
+      }),
+    );
 
     return {
       visible: Ref.get(current).pipe(Effect.map(Option.filter((w) => !w.isDestroyed() && w.isVisible()))),
@@ -106,7 +110,7 @@ export const makePanel = (
           w.showInactive();
           w.focus();
         }),
-      hide: Ref.get(current).pipe(Effect.map(Option.map((w) => w.isDestroyed() || w.hide())), Effect.asVoid),
+      hide: Ref.get(current).pipe(Effect.map(Option.map(hideWindow)), Effect.asVoid),
       keepOpen: (k) =>
         Effect.sync(() => {
           keep = k;

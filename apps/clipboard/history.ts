@@ -3,6 +3,8 @@ import { Schema } from 'effect';
 
 /** How many copies are kept. */
 export const HISTORY_SIZE = 200;
+/** And how many characters in all: a few huge copies must not stay in memory, and be rewritten, forever. */
+export const HISTORY_CHARS = 2_000_000;
 
 export const ClipboardHistoryFile = Schema.Struct({ items: Schema.Array(Schema.String) });
 export type ClipboardHistoryFile = typeof ClipboardHistoryFile.Type;
@@ -12,7 +14,14 @@ export const remember = (
   items: ReadonlyArray<string>,
   text: string,
   size = HISTORY_SIZE,
-): ReadonlyArray<string> => [text, ...items.filter((x) => x !== text)].slice(0, size);
+  chars = HISTORY_CHARS,
+): ReadonlyArray<string> => {
+  if (items[0] === text) return items;
+  let left = chars - text.length;
+  const older = items.filter((x) => x !== text).slice(0, size - 1);
+  const over = older.findIndex((x) => (left -= x.length) < 0);
+  return [text, ...(over === -1 ? older : older.slice(0, over))];
+};
 
 export const forget = (items: ReadonlyArray<string>, text: string): ReadonlyArray<string> =>
   items.filter((x) => x !== text);

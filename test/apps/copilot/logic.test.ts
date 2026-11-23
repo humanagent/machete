@@ -144,3 +144,12 @@ describe('cardVisible', () => {
   test('collapsing wins', () =>
     expect(L.cardVisible({ ...base, cardOpen: true, collapsed: true })).toBe(false));
 });
+
+test('new speech is noticed at the cap and after New chat, and only once', () => {
+  const full = (from: number) => Array.from({ length: 400 }, (_, i) => ({ id: String(from + i) }));
+  expect(L.newSpeech(full(0), '399')).toBe(false);
+  expect(L.newSpeech(full(1), '399')).toBe(true); // same count, one line later
+  expect(L.newSpeech([{ id: 'x' }], '399')).toBe(true); // New chat: fewer lines than before
+  expect(L.newSpeech([], '399')).toBe(false);
+  expect(L.newSpeech([{ id: 'x' }], undefined)).toBe(true);
+});

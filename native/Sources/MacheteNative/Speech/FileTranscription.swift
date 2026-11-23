@@ -7,7 +7,7 @@ import Foundation
 enum FileTranscription {
     @MainActor static func run(_ url: URL, locale: Locale) async throws -> String {
         let file = try AVAudioFile(forReading: url)
-        let stream = AnalyzerStream(locale: locale, name: "File")
+        let stream = AnalyzerStream(locale: locale, name: "File", live: false)
         let parts = Parts()
         stream.onCommit = { parts.items.append($0) }
         stream.onPartial = { if !$0.isEmpty { parts.partial = $0 } }

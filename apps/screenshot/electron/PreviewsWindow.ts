@@ -1,7 +1,7 @@
 // The floating previews: each screenshot stays at the bottom left of the screen you're on until you use it or close it.
 // The window never takes focus and is hidden from screen sharing (and from the next screenshot).
 import { app, BrowserWindow, ipcMain, nativeImage, screen } from 'electron';
-import { Context, Effect, FiberHandle, Layer, Option, Ref, Schema } from 'effect';
+import { Context, Effect, FiberHandle, Layer, Option, Ref, Schema, Semaphore } from 'effect';
 import { Channels } from '../../../core/channels';
 import { activeScreen, placeOnActive } from '../../../core/electron/ActiveScreen';
 import { preloadFile, rendererFile } from '../../../core/electron/paths';
@@ -70,17 +70,22 @@ export class ScreenshotPreviews extends Context.Service<
         w.setAlwaysOnTop(true, 'status');
         w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
         w.setContentProtection(true);
+        w.once('closed', () => resume(Effect.die(new Error('previews: closed before it loaded'))));
+        w.webContents.on('render-process-gone', () => w.isDestroyed() || w.destroy());
         w.webContents.once('did-finish-load', () => resume(Effect.succeed(w)));
-        void w.loadFile(rendererFile('previews'));
+        void w.loadFile(rendererFile('previews')).catch(() => w.isDestroyed() || w.destroy());
       });
       // Built with the first screenshot.
-      const window = Effect.gen(function* () {
-        const existing = (yield* Ref.get(current)).pipe(Option.filter((w) => !w.isDestroyed()));
-        if (Option.isSome(existing)) return existing.value;
-        const w = yield* create;
-        yield* Ref.set(current, Option.some(w));
-        return w;
-      });
+      const lock = yield* Semaphore.make(1);
+      const window = lock.withPermit(
+        Effect.gen(function* () {
+          const existing = (yield* Ref.get(current)).pipe(Option.filter((w) => !w.isDestroyed()));
+          if (Option.isSome(existing)) return existing.value;
+          const w = yield* create;
+          yield* Ref.set(current, Option.some(w));
+          return w;
+        }),
+      );
 
       const put = (w: BrowserWindow, count: number) =>
         placeOnActive(w, 'bottomLeft', {
@@ -94,11 +99,12 @@ export class ScreenshotPreviews extends Context.Service<
         let there = 0;
         let count = (yield* Ref.get(shots)).length;
         while (count > 0) {
-          yield* Effect.sleep('250 millis');
-          const w = yield* window;
+          yield* Effect.sleep('1 second');
           count = (yield* Ref.get(shots)).length;
+          if (count === 0 || screen.getAllDisplays().length < 2) continue;
+          const w = yield* window;
           there = activeScreen().id === screen.getDisplayMatching(w.getBounds()).id ? 0 : there + 1;
-          if (there < 2 || count === 0) continue;
+          if (there < 2) continue;
           there = 0;
           put(w, count);
         }
@@ -106,11 +112,13 @@ export class ScreenshotPreviews extends Context.Service<
 
       const show = Effect.gen(function* () {
         const list = yield* Ref.get(shots);
-        const w = yield* window;
         if (list.length === 0) {
           yield* FiberHandle.clear(follow);
-          return w.destroy();
+          const last = yield* Ref.getAndSet(current, Option.none());
+          if (Option.isSome(last) && !last.value.isDestroyed()) last.value.destroy();
+          return;
         }
+        const w = yield* window;
         put(w, list.length);
         setGlass(w, stackGlass(CARD, list.length, GAP, MARGIN));
         const state: PreviewsState = { shots: list.map(({ id, thumb }) => ({ id, thumb })) };

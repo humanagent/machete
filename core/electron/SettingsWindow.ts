@@ -121,11 +121,14 @@ export class SettingsWindow extends Context.Service<SettingsWindow, { readonly s
           apps.get.pipe(
             Effect.flatMap((all) =>
               Stream.mergeAll(
+                // Several settings share a stream: once each.
                 [
-                  hotkeys.changes,
-                  ...[...all.values()].flatMap((a) =>
-                    Object.values(a.settings).flatMap((c) => (c.changes ? [c.changes] : [])),
-                  ),
+                  ...new Set<Stream.Stream<unknown>>([
+                    hotkeys.changes,
+                    ...[...all.values()].flatMap((a) =>
+                      Object.values(a.settings).flatMap((c) => (c.changes ? [c.changes] : [])),
+                    ),
+                  ]),
                 ].map((changes: Stream.Stream<unknown>) => changes.pipe(Stream.map(() => undefined))),
                 { concurrency: 'unbounded' },
               ).pipe(Stream.runForEach(() => push)),

@@ -56,10 +56,12 @@ enum Clipboard {
                 lastChange = pb.changeCount
                 let types = Set(pb.types ?? [])
                 guard types.isDisjoint(with: skipped), let text = pb.string(forType: .string) else { return }
-                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= maxLength else { return }
+                // The length first: it's the cheap one, and a copy can be huge.
+                guard text.utf16.count <= maxLength, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 onText(text)
             }
         }
+        timer?.tolerance = 0.2 // lets macOS join it with other wakeups
     }
 
     /// Puts `text` on the clipboard and sends ⌘V to the app in front. It stays on the clipboard, like a copy.

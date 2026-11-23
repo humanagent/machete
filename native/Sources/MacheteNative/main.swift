@@ -59,6 +59,23 @@ case "transcribe":
     }
     dispatchMain()
 
+case "soak":
+    // Two live channels fed in real time from a file, like a recording: `soak <audio> <locale> <seconds>`. For tests.
+    guard args.count > 4, let seconds = Int(args[4]) else { fail("usage: machete-native soak <audio> <locale> <seconds>") }
+    let soakURL = URL(fileURLWithPath: args[2])
+    let soakLocale = Locale(identifier: args[3])
+    Task { @MainActor in
+        guard #available(macOS 26.0, *) else { fail("soak needs macOS 26") }
+        do { try await Load.soak(soakURL, locale: soakLocale, seconds: seconds); exit(0) } catch { fail("\(error)") }
+    }
+    dispatchMain()
+
+case "output-load":
+    // Reports that many lines as fast as it can, whether or not anyone reads them. For tests.
+    guard args.count > 2, let lines = Int(args[2]) else { fail("usage: machete-native output-load <lines>") }
+    Load.output(lines: lines)
+    exit(0)
+
 case "permissions":
     // One-shot, so it sees changes made in System Settings while the app runs (a long-lived process caches them).
     let mic = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -99,7 +116,7 @@ case "serve":
     withExtendedLifetime(keepAlive) { app.run() }
 
 default:
-    fail("usage: machete-native serve|extract|icon|transcribe|permissions|settings-window|text-replacements")
+    fail("usage: machete-native serve|extract|icon|transcribe|soak|output-load|permissions|settings-window|text-replacements")
 }
 
 @MainActor
@@ -114,14 +131,20 @@ final class Server {
     nonisolated func run() {
         // Read stdin on a background thread; handle each command on the main actor.
         Thread.detachNewThread {
-            while let line = readLine(strippingNewline: true) {
-                guard let data = line.data(using: .utf8),
-                      let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { continue }
-                Task { @MainActor in await Server.shared.handle(obj) }
+            // This thread lives as long as the app: without a pool per line, what each one autoreleases would never go.
+            var more = true
+            while more {
+                autoreleasepool {
+                    guard let line = readLine(strippingNewline: true) else { more = false; return }
+                    guard let data = line.data(using: .utf8),
+                          let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+                    Task { @MainActor in await Server.shared.handle(obj) }
+                }
             }
             // Parent closed stdin (Electron quit): stop cleanly and exit.
             Task { @MainActor in
                 await Server.shared.transcriber?.stop()
+                Out.flush()
                 exit(0)
             }
         }
@@ -153,17 +176,19 @@ final class Server {
             catch { reply(id, ["ok": false, "error": error.localizedDescription]) }
 
         case "listen.start":
-            await transcriber?.stop()
+            let before = transcriber
             let t = Transcriber(locale: Locale(identifier: cmd["locale"] as? String ?? "en-US"))
             t.onPartial = { speaker, text in Out.emit(["type": "partial", "speaker": speaker.rawValue, "text": text]) }
             t.onCommit = { speaker, text in Out.emit(["type": "commit", "speaker": speaker.rawValue, "text": text]) }
             t.onError = { message in Out.emit(["type": "error", "message": message]) }
+            // Before waiting for anything, so a stop that arrives meanwhile finds it.
             transcriber = t
+            await before?.stop()
             do {
                 try await t.start()
                 reply(id, ["ok": true])
             } catch {
-                transcriber = nil
+                if transcriber === t { transcriber = nil }
                 reply(id, ["ok": false, "error": error.localizedDescription])
             }
 
@@ -186,8 +211,7 @@ final class Server {
                        "accessibility": Dictation.canType(prompt: false) ? "granted" : "denied"])
 
         case "dictate.start":
-            await dictation?.stop()
-            dictationText = []; dictationPartial = ""
+            let before = dictation
             let d = Transcriber(locale: Locale(identifier: cmd["locale"] as? String ?? "en-US"), includeSystem: false)
             d.onPartial = { [weak self] _, text in self?.dictationPartial = text }
             d.onCommit = { [weak self] _, text in self?.dictationText.append(text); self?.dictationPartial = "" }
@@ -200,8 +224,10 @@ final class Server {
                 }
             }
             dictation = d
+            await before?.stop()
+            dictationText = []; dictationPartial = ""
             do { try await d.start(); reply(id, ["ok": true]) } catch {
-                dictation = nil
+                if dictation === d { dictation = nil }
                 reply(id, ["ok": false, "error": error.localizedDescription])
             }
 

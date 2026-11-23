@@ -1,6 +1,6 @@
 // IPC contract of Copilot's panels: its own and the bots'.
 import { Schema } from 'effect';
-import { BotsState, CopilotState, ProfileFields } from './domain';
+import { BotsState, type CopilotState, ProfileFields, type TranscriptLine } from './domain';
 
 // MARK: Copilot
 
@@ -30,9 +30,12 @@ export interface CopilotKeys {
   readonly reset: string;
 }
 
+/** A state on its way to the panel: the transcript, by far the largest part, only comes when it changed. */
+export type PanelUpdate = Omit<CopilotState, 'lines'> & { readonly lines?: ReadonlyArray<TranscriptLine> };
+
 /** What the copilot preload exposes as `window.machete`. */
 export interface CopilotBridge {
-  readonly onState: (listener: (state: CopilotState) => void) => () => void;
+  readonly onState: (listener: (state: PanelUpdate) => void) => () => void;
   /** The shortcuts shown on the panel, as signs ("⌥↩"). */
   readonly onKeys: (listener: (keys: CopilotKeys) => void) => () => void;
   readonly send: (command: CopilotCommand) => void;

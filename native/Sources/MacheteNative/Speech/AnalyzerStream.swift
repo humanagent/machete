@@ -8,6 +8,8 @@ import Speech
 final class AnalyzerStream: @unchecked Sendable {
     var onCommit: (@MainActor (String) -> Void)?
     var onPartial: (@MainActor (String) -> Void)?
+    /// The analyzer gave up by itself: no more audio is taken.
+    var onFailure: (@MainActor (Error) -> Void)?
 
     private let locale: Locale
     private let name: String
@@ -32,9 +34,16 @@ final class AnalyzerStream: @unchecked Sendable {
         return m
     }
 
-    init(locale: Locale, name: String) {
+    /// Live audio the analyzer can be behind by (a couple of minutes of buffers); past that the oldest is dropped, so a
+    /// stuck analyzer can't fill the memory.
+    static let liveBacklog = 4096
+    private let backlog: AsyncStream<AnalyzerInput>.Continuation.BufferingPolicy
+
+    /// `live: false` (a file, read faster than it is transcribed) keeps all of the audio.
+    init(locale: Locale, name: String, live: Bool = true) {
         self.locale = locale
         self.name = name
+        backlog = live ? .bufferingNewest(Self.liveBacklog) : .unbounded
     }
 
     func start() async throws {
@@ -50,7 +59,7 @@ final class AnalyzerStream: @unchecked Sendable {
         }
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
-        let (sequence, continuation) = AsyncStream<AnalyzerInput>.makeStream()
+        let (sequence, continuation) = AsyncStream<AnalyzerInput>.makeStream(bufferingPolicy: backlog)
 
         lock.lock()
         builder = continuation
@@ -88,9 +97,17 @@ final class AnalyzerStream: @unchecked Sendable {
                 }
             } catch {
                 Log.write("[\(name)] results error: \(error)")
+                // Nobody reads the audio anymore: stop taking it.
+                if let self, self.endInput() { await self.onFailure?(error) }
             }
         }
-        try await analyzer.start(inputSequence: sequence)
+        do { try await analyzer.start(inputSequence: sequence) } catch {
+            _ = endInput()
+            resultsTask?.cancel()
+            resultsTask = nil
+            await analyzer.cancelAndFinishNow()
+            throw error
+        }
         self.analyzer = analyzer
         Log.write("[\(name)] analyzer started locale=\(supported.identifier) format=\(format.map { "\($0)" } ?? "nil")")
     }
@@ -99,17 +116,28 @@ final class AnalyzerStream: @unchecked Sendable {
         lock.lock(); paused = p; lock.unlock()
     }
 
-    /// Ends input and waits until the last words are transcribed and delivered.
-    func finish() async {
+    /// Stops taking audio. False when it had already stopped.
+    private func endInput() -> Bool {
         lock.lock()
         let b = builder
         builder = nil
         lock.unlock()
         b?.finish()
+        return b != nil
+    }
+
+    /// Ends input and waits until the last words are transcribed and delivered.
+    func finish() async {
+        _ = endInput()
         do { try await analyzer?.finalizeAndFinishThroughEndOfInput() } catch {
             Log.write("[\(name)] finalize error: \(error)")
+            // Its results may never end then.
+            resultsTask?.cancel()
+            await analyzer?.cancelAndFinishNow()
         }
         await resultsTask?.value
+        resultsTask = nil
+        analyzer = nil
         debugFile = nil   // closes the file
         Log.write("[\(name)] finished (volatile results: \(volatileCount))")
     }

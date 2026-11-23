@@ -15,6 +15,8 @@ export interface EditorResult {
 }
 
 const PNG = 'data:image/png;base64,';
+/** Its canvas and pictures are full size, so it doesn't stay around like the other panels. */
+const IDLE_MS = 5_000;
 
 export class ScreenshotEditor extends Context.Service<
   ScreenshotEditor,
@@ -26,7 +28,7 @@ export class ScreenshotEditor extends Context.Service<
       const screenshots = yield* Screenshots;
       const helper = yield* NativeHelper;
       const run = yield* makeRunner<never>();
-      const panel = yield* makePanel('editor', { width: 860, height: 600 });
+      const panel = yield* makePanel('editor', { width: 860, height: 600 }, IDLE_MS);
       // Clicking elsewhere doesn't lose what you're doing.
       yield* panel.keepOpen(true);
       const opened = yield* Ref.make(0);

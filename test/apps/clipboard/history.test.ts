@@ -10,6 +10,18 @@ test('the history keeps a fixed number of entries', () => {
   expect(remember(['b', 'a'], 'c', 2)).toEqual(['c', 'b']);
 });
 
+test('a few huge copies push the oldest ones out; the newest always stays', () => {
+  const big = 'x'.repeat(60);
+  expect(remember([big, 'b', 'a'], 'c', 200, 70)).toEqual(['c', big, 'b', 'a']);
+  expect(remember([big, 'b', 'a'], 'cccccccccc', 200, 70)).toEqual(['cccccccccc', big]);
+  expect(remember(['a'], big, 200, 10)).toEqual([big]);
+});
+
+test('copying what is already on top changes nothing', () => {
+  const items = ['b', 'a'];
+  expect(remember(items, 'b')).toBe(items);
+});
+
 test('forget removes an entry', () => {
   expect(forget(['c', 'b', 'a'], 'b')).toEqual(['c', 'a']);
 });

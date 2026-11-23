@@ -108,14 +108,16 @@ const settle = Effect.sleep('20 millis');
 
 test('a dictation that cannot start says why in the pill, then hides it', async () => {
   const result = await run(
-    ({ dictation, pill }) =>
+    ({ dictation, pill, helper }) =>
       Effect.gen(function* () {
         yield* dictation.toggle;
-        return { pill: [...pill], phase: yield* dictation.phase };
+        return { pill: [...pill], phase: yield* dictation.phase, calls: helper.log.calls };
       }),
     { dictateStart: () => Effect.fail(new HelperError({ message: 'no microphone' })) },
   );
   expect(result.pill).toContain('Failed');
+  // It may have only timed out: the microphone is closed too.
+  expect(result.calls).toContain('dictate.stop:true');
 });
 
 test('the voice level reaches the pill; helper errors are only logged', async () => {

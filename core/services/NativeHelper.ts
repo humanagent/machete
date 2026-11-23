@@ -256,12 +256,22 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
               }),
             ),
           );
-          // Supervised: if the helper dies, it comes back a second later.
-          yield* runOnce.pipe(
-            Effect.andThen(Effect.sleep(Duration.seconds(1))),
-            Effect.forever,
-            Effect.forkScoped,
-          );
+          // Supervised: if the helper dies, it comes back a second later; if it keeps dying, less and less often.
+          let wait = 1;
+          yield* Effect.suspend(() => {
+            const at = Date.now();
+            return runOnce.pipe(
+              Effect.andThen(
+                Effect.suspend(() => {
+                  const lasted = Date.now() - at > 30_000;
+                  if (lasted) wait = 1;
+                  const now = wait;
+                  wait = Math.min(60, wait * 2);
+                  return Effect.sleep(Duration.seconds(now));
+                }),
+              ),
+            );
+          }).pipe(Effect.forever, Effect.forkScoped);
           yield* Deferred.await(started).pipe(Effect.timeout(Duration.seconds(10)), Effect.ignore);
         }
 

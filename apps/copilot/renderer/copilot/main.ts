@@ -1,7 +1,7 @@
 // The copilot view. All state lives in the main process; this program renders each state it receives
 // and turns clicks and keys into commands.
 import { Effect, Stream } from 'effect';
-import type { Exchange, CopilotState } from '../../domain';
+import type { Exchange, CopilotState, TranscriptLine } from '../../domain';
 import type { CopilotBridge, CopilotCommand, CopilotKeys } from '../../ipc';
 import { clock, recordedSeconds, transcriptText } from '../../logic';
 import { escapeHTML, renderBody } from '../../markdown';
@@ -66,7 +66,9 @@ const view = {
   bodyWanted: false,
   bodyGen: 0,
   lastQuestion: '',
-  lastExchangeCount: 0,
+  lastExchange: undefined as string | undefined,
+  clock: 0,
+  transcript: null as Pick<CopilotState, 'lines' | 'partialMe' | 'partialThem' | 'isListening'> | null,
   lastThinking: false,
   lastFocusTick: 0,
   grip: null as { readonly y: number; readonly height: number } | null,
@@ -83,11 +85,9 @@ const bodyHeight = (s: CopilotState) => Math.max(160, s.cardHeight - 66) + 0.5;
 const sendLayout = () => {
   const s = view.state;
   if (!s) return;
-  send({
-    _tag: 'Layout',
-    width: s.cardWidth + PAD * 2,
-    height: BAR + (view.bodyMounted ? bodyHeight(s) : 0) + PAD * 2,
-  });
+  const width = s.cardWidth + PAD * 2;
+  const height = BAR + (view.bodyMounted ? bodyHeight(s) : 0) + PAD * 2;
+  send({ _tag: 'Layout', width, height });
 };
 
 /** Slides the body open or closed; the window only gives the room back once it has closed. */
@@ -123,6 +123,18 @@ const setBody = (open: boolean) => {
 
 // MARK: Render
 
+/** The recording clock ticks here, once a second and only while it runs, without waiting for a new state. */
+const tickWhile = (running: boolean) => {
+  if (!running) {
+    clearInterval(view.clock);
+    view.clock = 0;
+  } else if (view.clock === 0) {
+    view.clock = window.setInterval(() => {
+      if (view.state) el.rectime.textContent = clock(recordedSeconds(view.state, Date.now()));
+    }, 1000);
+  }
+};
+
 const renderBar = (s: CopilotState) => {
   el.backIcon.className = s.cardVisible ? 'i-arrow-left' : 'i-arrow-down';
   el.back.title = s.cardVisible ? 'Collapse' : s.unseenFollow > 0 ? 'New Follow correction' : 'Show answers';
@@ -133,6 +145,7 @@ const renderBar = (s: CopilotState) => {
   el.recdot.classList.toggle('paused', s.isPaused);
   el.rectime.classList.toggle('paused', s.isPaused);
   el.rectime.textContent = clock(recordedSeconds(s, Date.now()));
+  tickWhile(s.isListening && !s.isPaused);
 
   el.input.placeholder = s.exchanges.length === 0 ? 'Ask a follow-up about the meeting…' : 'Ask follow-up…';
   // The field mirrors the question: an ask (button, Enter or ⌥↩) clears it even while it has focus.
@@ -220,9 +233,25 @@ const renderTranscript = (s: CopilotState) => {
   const show = s.showTranscript && !s.isListening;
   el.transcript.hidden = !show;
   if (!show) {
-    el.transcript.innerHTML = '';
+    if (view.transcript) el.transcript.innerHTML = '';
+    view.transcript = null;
     return;
   }
+  const drawn = view.transcript;
+  if (
+    drawn &&
+    drawn.lines === s.lines &&
+    drawn.partialMe === s.partialMe &&
+    drawn.partialThem === s.partialThem &&
+    drawn.isListening === s.isListening
+  )
+    return;
+  view.transcript = {
+    lines: s.lines,
+    partialMe: s.partialMe,
+    partialThem: s.partialThem,
+    isListening: s.isListening,
+  };
   let html = '<div class="thead"><span class="label">TRANSCRIPT</span><span class="spacer"></span>';
   if (s.lines.length > 0) {
     html += '<button class="tcopy" id="tcopy" type="button"><i class="i-copy"></i>Copy Transcript</button>';
@@ -255,8 +284,8 @@ const renderCard = (s: CopilotState) => {
   el.tbtn.classList.toggle('on', s.showTranscript);
   el.newchat.hidden = s.exchanges.length === 0;
   // Scroll to the end when an exchange is added or thinking starts or stops.
-  if (s.exchanges.length !== view.lastExchangeCount || s.isThinking !== view.lastThinking) {
-    view.lastExchangeCount = s.exchanges.length;
+  if (last?.id !== view.lastExchange || s.isThinking !== view.lastThinking) {
+    view.lastExchange = last?.id;
     view.lastThinking = s.isThinking;
     requestAnimationFrame(() => el.end.scrollIntoView({ behavior: 'smooth', block: 'end' }));
   }
@@ -399,12 +428,6 @@ const bindInput = Effect.sync(() => {
   );
 });
 
-/** The recording clock ticks here, once a second, without waiting for a new state. */
-const tickClock = Effect.sync(() => {
-  const s = view.state;
-  if (s?.isListening) el.rectime.textContent = clock(recordedSeconds(s, Date.now()));
-}).pipe(Effect.andThen(Effect.sleep('1 second')), Effect.forever);
-
 /** The shortcuts on the buttons, as they are in Settings. */
 const renderKeys = (k: CopilotKeys) =>
   Effect.sync(() => {
@@ -422,11 +445,20 @@ const renderKeys = (k: CopilotKeys) =>
     );
   });
 
+/** Puts the transcript back on the updates that come without it. Here, where every update passes: the stream after it
+ * keeps only the latest. */
+const onState = (listener: (state: CopilotState) => void) => {
+  let lines: ReadonlyArray<TranscriptLine> = [];
+  return bridge.onState((update) => {
+    lines = update.lines ?? lines;
+    listener({ ...update, lines });
+  });
+};
+
 runMain(
   Effect.gen(function* () {
     yield* bindInput;
     yield* fromBridge(bridge.onKeys).pipe(Stream.runForEach(renderKeys), Effect.forkChild);
-    yield* Effect.forkChild(tickClock);
-    yield* fromBridge(bridge.onState).pipe(Stream.runForEach(render));
+    yield* fromBridge(onState).pipe(Stream.runForEach(render));
   }),
 );

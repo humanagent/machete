@@ -92,7 +92,12 @@ export class Dictation extends Context.Service<Dictation, DictationShape>()('mac
         const { dictationLanguage } = yield* app.model;
         yield* helper.dictateStart(dictationLanguage).pipe(
           Effect.tap(() => Effect.logInfo(`dictation: start (into ${front.name || '?'})`)),
-          Effect.catch((e) => failed(e.message)),
+          // It may have timed out while still starting: the microphone must not open later, with nobody listening.
+          Effect.catch((e) =>
+            helper
+              .dictateStop(true)
+              .pipe(Effect.ignore, Effect.forkDetach, Effect.andThen(failed(e.message))),
+          ),
         );
       });
 

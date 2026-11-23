@@ -19,6 +19,8 @@ final class Transcriber {
     private var them26: AnyObject?
     private let mic = MicCapture()
     private let system = SystemAudioCapture()
+    /// Set by `stop`, also while `start` is still waiting (a permission, the speech model): it then opens nothing else.
+    private var stopped = false
 
     /// `includeSystem: false` transcribes only the microphone (dictation).
     private let includeSystem: Bool
@@ -35,30 +37,48 @@ final class Transcriber {
         }
     }
 
+    /// Whatever was opened is closed again if it fails, or if `stop` arrived meanwhile.
     func start() async throws {
+        do {
+            try await open()
+        } catch {
+            await stop()
+            throw error
+        }
+        if stopped { await stop() }
+    }
+
+    private func open() async throws {
         Log.write("listen: start locale=\(locale.identifier)")
         let micAllowed = await AVCaptureDevice.requestAccess(for: .audio)
         Log.write("listen: micAllowed=\(micAllowed)")
+        if stopped { return }
 
         if #available(macOS 26.0, *) {
             if includeSystem {
                 let them = AnalyzerStream(locale: locale, name: "Them")
                 them.onCommit = { [weak self] t in self?.onCommit?(.them, t) }
                 them.onPartial = { [weak self] t in self?.onPartial?(.them, t) }
-                try await them.start()
+                them.onFailure = { [weak self] e in self?.onError?("Transcription of the other side stopped: \(e.localizedDescription)") }
                 them26 = them
+                try await them.start()
+                // `stop` couldn't finish what hadn't started yet.
+                if stopped { return await them.finish() }
                 system.sink = { [weak them] buf in them?.append(buf) }
                 do { try await system.start(); Log.write("listen: system audio started") } catch {
                     Log.write("listen: system audio FAILED \(error)")
                     onError?("System audio unavailable (grant Screen & System Audio Recording): \(error.localizedDescription)")
                 }
+                if stopped { return }
             }
             if micAllowed {
                 let me = AnalyzerStream(locale: locale, name: "Me")
                 me.onCommit = { [weak self] t in self?.onCommit?(.me, t) }
                 me.onPartial = { [weak self] t in self?.onPartial?(.me, t) }
-                try await me.start()
+                me.onFailure = { [weak self] e in self?.onError?("Transcription of your microphone stopped: \(e.localizedDescription)") }
                 me26 = me
+                try await me.start()
+                if stopped { return await me.finish() }
                 do { try mic.start(micSink { [weak me] buf in me?.append(buf) }); Log.write("listen: mic started") } catch {
                     Log.write("listen: mic FAILED \(error)")
                     onError?("Microphone unavailable: \(error.localizedDescription)")
@@ -74,6 +94,7 @@ final class Transcriber {
         guard await Self.requestSpeechAuth() else {
             throw HelperError(message: "Speech Recognition permission denied. Enable it in System Settings ▸ Privacy & Security.")
         }
+        if stopped { return }
         if includeSystem {
             let them = makeStream(.them)
             self.them = them
@@ -82,6 +103,7 @@ final class Transcriber {
             do { try await system.start() } catch {
                 onError?("System audio unavailable (grant Screen Recording permission): \(error.localizedDescription)")
             }
+            if stopped { return }
         }
         if micAllowed {
             let me = makeStream(.me)
@@ -104,6 +126,7 @@ final class Transcriber {
 
     /// Stops capturing and waits for the final words to be transcribed.
     func stop() async {
+        stopped = true
         mic.stop()
         system.stop()
         me?.stop(); them?.stop()
@@ -270,25 +293,67 @@ final class RequestBox: @unchecked Sendable {
 
 // MARK: - Audio sources
 
+/// Used from the main thread; only the tap runs on the audio one.
 final class MicCapture {
     private let engine = AVAudioEngine()
     private var running = false
+    private var sink: ((AVAudioPCMBuffer) -> Void)?
+    private var observer: NSObjectProtocol?
+    private var retries = 0
     var formatDescription: String { "\(engine.inputNode.outputFormat(forBus: 0))" }
 
     func start(_ sink: @escaping (AVAudioPCMBuffer) -> Void) throws {
+        running = true
+        self.sink = sink
+        // Headphones connect, the default input changes: macOS stops the engine, and it's up to us to start it again.
+        observer = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in self?.restart() }
+        do { try open() } catch {
+            stop()
+            throw error
+        }
+    }
+
+    private func open() throws {
+        guard let sink else { return }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
+        // Between two devices there is none, and a tap on it would crash.
+        guard format.sampleRate > 0, format.channelCount > 0 else { throw HelperError(message: "No microphone.") }
         input.installTap(onBus: 0, bufferSize: 2048, format: format) { buf, _ in sink(buf) }
         engine.prepare()
         try engine.start()
-        running = true
+    }
+
+    private func close() {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+    }
+
+    private func restart() {
+        guard running else { return }
+        close()
+        do {
+            try open()
+            retries = 0
+            Log.write("listen: mic restarted (\(formatDescription))")
+        } catch {
+            close()
+            retries += 1
+            Log.write("listen: mic restart FAILED (\(retries)) \(error)")
+            guard retries <= 10 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.restart() }
+        }
     }
 
     func stop() {
         guard running else { return }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
         running = false
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
+        sink = nil
+        close()
     }
 }
 
@@ -312,13 +377,17 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
         let s = SCStream(filter: filter, configuration: config, delegate: self)
         try s.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
+        // The frames come anyway: without someone to take them macOS logs an error for each one.
+        try s.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
         try await s.startCapture()
         stream = s
     }
 
+    /// Doesn't wait: on a busy Mac it takes seconds, and the last words don't need it.
     func stop() {
         let s = stream
         stream = nil
+        sink = nil
         Task { try? await s?.stopCapture() }
     }
 
@@ -329,7 +398,6 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         Log.write("system audio stopped: \(error)")
-        Log.write("system audio stopped: \(error.localizedDescription)")
     }
 }
 

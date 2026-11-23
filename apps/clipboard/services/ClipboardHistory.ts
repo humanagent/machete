@@ -16,6 +16,8 @@ export interface ClipboardHistoryShape {
   readonly clear: Effect.Effect<void>;
 }
 
+const keep = (items: ReadonlyArray<string>, text: string) => remember(items, text);
+
 export class ClipboardHistory extends Context.Service<ClipboardHistory, ClipboardHistoryShape>()(
   'machete/ClipboardHistory',
 ) {
@@ -28,7 +30,8 @@ export class ClipboardHistory extends Context.Service<ClipboardHistory, Clipboar
       const path = yield* Path.Path;
       const stored = yield* readJson(ClipboardHistoryFile, clipboardFile);
       const items = yield* SubscriptionRef.make<ReadonlyArray<string>>(
-        Option.match(stored, { onNone: () => [], onSome: (f) => f.items }),
+        // Through `remember`: a file from before the limits is cut to them.
+        Option.match(stored, { onNone: () => [], onSome: (f) => f.items.reduceRight(keep, []) }),
       );
       const save = (next: ReadonlyArray<string>) =>
         writeJson(ClipboardHistoryFile, clipboardFile, { items: next }, { mode: 0o600, pretty: false }).pipe(
@@ -37,7 +40,10 @@ export class ClipboardHistory extends Context.Service<ClipboardHistory, Clipboar
           Effect.catch((e) => Effect.logWarning(`clipboard: ${e.message}`)),
         );
       const change = (f: (items: ReadonlyArray<string>) => ReadonlyArray<string>) =>
-        SubscriptionRef.updateAndGet(items, f).pipe(Effect.flatMap(save));
+        SubscriptionRef.modify(items, (before) => {
+          const next = f(before);
+          return [next === before ? Option.none() : Option.some(next), next] as const;
+        }).pipe(Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: save })));
 
       const watch = helper.watchClipboard.pipe(
         Effect.catch((e) => Effect.logWarning(`clipboard: watch failed: ${e.message}`)),

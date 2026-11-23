@@ -6,9 +6,9 @@ import { NodeServices } from '@effect/platform-node';
 import { Effect, Layer, Option, PubSub, Ref, Stream } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import type { HttpClientRequest } from 'effect/http';
-import { AppPaths } from '../../src/main/services/AppPaths';
-import { ExternalBrowser } from '../../src/main/services/ExternalBrowser';
-import { type HelperEvent, NativeHelper, type NativeHelperShape } from '../../src/main/services/NativeHelper';
+import { AppPaths } from '../../src/core/services/AppPaths';
+import { ExternalBrowser } from '../../src/core/services/ExternalBrowser';
+import { type HelperEvent, NativeHelper, type NativeHelperShape } from '../../src/core/services/NativeHelper';
 
 /** A fresh support folder per test, deleted afterwards. */
 export const withTempDir = <A, E, R>(f: (dir: string) => Effect.Effect<A, E, R>) =>
@@ -67,6 +67,7 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       subscribe: PubSub.subscribe(events).pipe(Effect.map(Stream.fromSubscription)),
       captureDataURL: () => record('capture').pipe(Effect.as('data:image/jpeg;base64,AAAA')),
       fingerprint: Ref.get(fingerprint),
+      wallpaper: Effect.succeed('data:image/jpeg;base64,AAAA'),
       startListening: () => record('listen.start'),
       setPaused: (p) => record(`listen.pause:${p}`),
       stopListening: record('listen.stop'),
@@ -75,6 +76,13 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       frontmost: Effect.succeed({ name: 'TextEdit', icon: '' }),
       paste: (text) => Effect.sync(() => void log.typed.push(text)),
       watchRightOption: record('rightoption.watch'),
+      snapWindow: (to) => record(`window.snap:${to}`),
+      watchClipboard: record('clipboard.watch'),
+      setSnippets: (items) => record(`snippets.set:${items.map((s) => s.abbreviation).join(',')}`),
+      macTextReplacements: Effect.succeed([{ abbreviation: 'omw', content: 'On my way!' }]),
+      readSelection: Effect.succeed({ text: 'hola mudno', pid: 7 }),
+      replaceSelection: (text, pid) => record(`selection.replace:${pid}:${text}`).pipe(Effect.as(true)),
+      pasteClip: (text) => record(`clipboard.paste:${text}`),
       permissionStatus: Effect.succeed({
         microphone: 'granted',
         screen: 'granted',

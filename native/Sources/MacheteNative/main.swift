@@ -17,6 +17,14 @@ import AVFoundation
 //   {"id":6,"cmd":"frontmost"}                       -> {"id":6,"ok":true,"name":…,"icon":dataURL}
 //   {"id":7,"cmd":"paste","text":…}                  -> {"id":7,"ok":true|false} (types into the focused app)
 //   {"id":8,"cmd":"rightoption.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightoption"} on each lone right-⌥ tap
+//   {"id":9,"cmd":"window.snap","to":"left"|"right"|"maximize"} -> {"id":9,"ok":true|false} (the focused window of the frontmost app)
+//   {"id":10,"cmd":"clipboard.watch"}              -> {"id":10,"ok":true}; then {"type":"clipboard","text":…} on each new text copy
+//   {"id":11,"cmd":"clipboard.paste","text":…}     -> {"id":11,"ok":true|false} (puts it on the clipboard and sends ⌘V)
+//   {"id":12,"cmd":"snippets.set","items":[{"abbreviation":…,"content":…}]} -> {"id":12,"ok":true|false} (false: no Input Monitoring)
+//   {"id":13,"cmd":"selection.read"}                -> {"id":13,"ok":true,"text":…,"pid":…} (the text selected in the frontmost app)
+//   {"id":14,"cmd":"selection.replace","text":…,"pid":…} -> {"id":14,"ok":true,"pasted":true|false} (false: left on the clipboard)
+//   {"id":15,"cmd":"wallpaper"}                        -> {"id":15,"ok":true,"dataURL":…} (the desktop picture of the screen under the pointer)
+//   machete-native text-replacements                -> prints the Mac's text replacements as JSON (one-shot)
 // events: {"type":"partial"|"commit","speaker":"me"|"them","text":…}, {"type":"error","message":…}, {"type":"log",…}
 
 let args = CommandLine.arguments
@@ -63,6 +71,11 @@ case "permissions":
     FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: status))
     exit(0)
 
+case "text-replacements":
+    guard let items = Snippets.macTextReplacements() else { exit(2) }
+    FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: items))
+    exit(0)
+
 case "settings-window":
     // Bounds of the frontmost System Settings window (top-left origin, points), so the guide can sit beside it.
     let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -86,7 +99,7 @@ case "serve":
     withExtendedLifetime(keepAlive) { app.run() }
 
 default:
-    fail("usage: machete-native serve|extract|icon|transcribe|permissions|settings-window")
+    fail("usage: machete-native serve|extract|icon|transcribe|permissions|settings-window|text-replacements")
 }
 
 @MainActor
@@ -133,6 +146,10 @@ final class Server {
 
         case "fingerprint":
             do { reply(id, ["ok": true, "pixels": try await Capture.fingerprint().map { Int($0) }]) }
+            catch { reply(id, ["ok": false, "error": error.localizedDescription]) }
+
+        case "wallpaper":
+            do { reply(id, ["ok": true, "dataURL": try await Wallpaper.dataURL()]) }
             catch { reply(id, ["ok": false, "error": error.localizedDescription]) }
 
         case "listen.start":
@@ -209,6 +226,44 @@ final class Server {
         case "rightoption.watch":
             let ok = Dictation.watchRightOption { Out.emit(["type": "rightoption"]) }
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "input-monitoring"])
+
+        case "window.snap":
+            do {
+                try Windows.snap(cmd["to"] as? String ?? "maximize")
+                reply(id, ["ok": true])
+            } catch Windows.SnapError.accessibility {
+                reply(id, ["ok": false, "error": "accessibility"])
+            } catch {
+                reply(id, ["ok": false, "error": "no-window"])
+            }
+
+        case "clipboard.watch":
+            Clipboard.watch { text in Out.emit(["type": "clipboard", "text": text]) }
+            reply(id, ["ok": true])
+
+        case "clipboard.paste":
+            let ok = Clipboard.paste(cmd["text"] as? String ?? "")
+            reply(id, ok ? ["ok": true] : ["ok": false, "error": "accessibility"])
+
+        case "snippets.set":
+            let ok = Snippets.set(cmd["items"] as? [[String: Any]] ?? [])
+            reply(id, ok ? ["ok": true] : ["ok": false, "error": "input-monitoring"])
+
+        case "selection.read":
+            do {
+                let s = try await Selection.read()
+                reply(id, ["ok": true, "text": s.text, "pid": Int(s.pid)])
+            } catch {
+                reply(id, ["ok": false, "error": (error as? Selection.ReadError)?.rawValue ?? "no-selection"])
+            }
+
+        case "selection.replace":
+            do {
+                let pasted = try await Selection.replace(cmd["text"] as? String ?? "", pid: pid_t(cmd["pid"] as? Int ?? 0))
+                reply(id, ["ok": true, "pasted": pasted])
+            } catch {
+                reply(id, ["ok": false, "error": "accessibility"])
+            }
 
         case "ping":
             reply(id, ["ok": true])

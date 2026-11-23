@@ -121,3 +121,7 @@ Everything in `src/` is cross-platform except what `machete-native` provides:
 - Context files: a PDF/Word parser.
 - Icons: SF Symbols can't ship on Windows; swap `assets/icons` for an equivalent set.
 - Hotkeys already map ⌥ to Alt and ⌘ to Ctrl.
+
+## License
+
+[MIT](LICENSE). The Inter typeface has [its own](assets/Inter-LICENSE.txt).

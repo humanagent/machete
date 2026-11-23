@@ -93,8 +93,8 @@ export const ON_GLASS = {
   'radius-panel': `${RADIUS.panel}px`,
   'radius-pill': `${RADIUS.pill}px`,
   'radius-sheet': `${RADIUS.sheet}px`,
-  // Copilot is dark glass: there's a lot to read in it.
-  'copilot-alpha': 'max(0.2, calc(var(--body-alpha) * 2.1 - 1.06))',
+  // Copilot is dark glass: there's a lot to read in it, often over a white page.
+  'copilot-alpha': 'calc(var(--body-alpha) * 1.5 - 0.42)',
   'text-shadow': '0 0 1px rgb(0 0 0 / 0.5), 0 1px 4px rgb(0 0 0 / 0.45)',
 } as const;
 

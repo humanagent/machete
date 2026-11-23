@@ -117,11 +117,17 @@ test('the panels are glass: neutral, and most of what’s behind comes through',
   const through = (1 - GLASS_TINT[3]) * (1 - parse(TOKENS['surface-glass'])[3]!);
   expect(through).toBeGreaterThanOrEqual(0.85);
   // Copilot is darker, and still glass as it comes (Settings' “Balanced”).
-  expect(ON_GLASS['copilot-alpha']).toBe('max(0.2, calc(var(--body-alpha) * 2.1 - 1.06))');
-  const copilot = (opacity: number) => Math.max(0.2, (0.5 + 0.5 * opacity) * 2.1 - 1.06);
-  expect(copilot(0.35)).toBeLessThan(0.4);
-  expect(copilot(0.55)).toBeGreaterThan(0.5);
-  expect(copilot(0.55)).toBeLessThan(0.65);
-  expect(copilot(0.8)).toBeGreaterThan(0.8);
+  expect(ON_GLASS['copilot-alpha']).toBe('calc(var(--body-alpha) * 1.5 - 0.42)');
+  const copilot = (opacity: number) => (0.5 + 0.5 * opacity) * 1.5 - 0.42;
+  expect(copilot(0.55)).toBeLessThan(0.8);
+  expect(copilot(0.8)).toBeLessThan(0.97);
+  // White text over it, with a white page behind: what it comes with reads comfortably, the most see-through enough.
+  const ink = parse(TOKENS['surface-opaque'])[0]!;
+  const contrast = (opacity: number) => {
+    const gray = (255 + (ink - 255) * copilot(opacity)) / 255;
+    return 1.05 / (((gray + 0.055) / 1.055) ** 2.4 + 0.05);
+  };
+  expect(contrast(0.35)).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(0.55)).toBeGreaterThanOrEqual(7);
   expect(read('native/glass/glass.mm')).toContain('.style = kClear');
 });

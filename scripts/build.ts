@@ -1,34 +1,24 @@
 // Bundles the app into out/: the main process and preloads for Electron's Node (CommonJS),
-// the four windows for the browser, plus their HTML and CSS.
+// the windows for the browser, plus their HTML and CSS.
 import { cp, rm } from 'node:fs/promises';
 import { Console, Effect } from 'effect';
+import { APPS } from '../apps';
+import { tokensCss } from '../core/design/tokens';
 
 const root = new URL('..', import.meta.url).pathname;
 const out = `${root}out`;
 const production = process.argv.includes('--production');
-/** Each window's folder: its preload and its renderer (main.ts, index.html, styles). Products own their windows. */
-const WINDOWS = {
+/** Each window's folder: its preload and its renderer (main.ts, index.html, styles). Apps declare theirs. */
+const WINDOWS: Record<string, { readonly preload: string; readonly renderer: string }> = {
+  settings: { preload: 'core/preload/settings.ts', renderer: 'core/renderer/settings' },
   permissions: { preload: 'core/preload/permissions.ts', renderer: 'core/renderer/permissions' },
-  overlay: { preload: 'products/copilot/preload/overlay.ts', renderer: 'products/copilot/renderer/overlay' },
-  manage: { preload: 'products/copilot/preload/manage.ts', renderer: 'products/copilot/renderer/manage' },
-  dictation: { preload: 'products/dictation/preload/dictation.ts', renderer: 'products/dictation/renderer' },
-  calculator: {
-    preload: 'products/calculator/preload/calculator.ts',
-    renderer: 'products/calculator/renderer',
-  },
-  snippets: { preload: 'products/snippets/preload/snippets.ts', renderer: 'products/snippets/renderer' },
-  rewrite: { preload: 'products/rewrite/preload/rewrite.ts', renderer: 'products/rewrite/renderer' },
-  previews: {
-    preload: 'products/screenshot/preload/previews.ts',
-    renderer: 'products/screenshot/renderer/previews',
-  },
-  editor: {
-    preload: 'products/screenshot/preload/editor.ts',
-    renderer: 'products/screenshot/renderer/editor',
-  },
-  clipboard: { preload: 'products/clipboard/preload/clipboard.ts', renderer: 'products/clipboard/renderer' },
-} as const;
-const names = Object.keys(WINDOWS) as Array<keyof typeof WINDOWS>;
+};
+for (const app of APPS)
+  for (const [name, folder] of Object.entries(app.windows ?? {})) {
+    if (WINDOWS[name]) throw new Error(`${app.id}: another window is already called "${name}"`);
+    WINDOWS[name] = { preload: `apps/${app.id}/preload/${name}.ts`, renderer: `apps/${app.id}/${folder}` };
+  }
+const names = Object.keys(WINDOWS);
 
 class BuildFailed extends Error {}
 
@@ -54,14 +44,14 @@ const program = Effect.gen(function* () {
   yield* Effect.all(
     [
       bundle({
-        entrypoints: [`${root}src/main.ts`],
+        entrypoints: [`${root}core/main.ts`],
         outdir: `${out}/main`,
         target: 'node',
         format: 'cjs',
         external: ['electron'],
       }),
       bundle({
-        entrypoints: names.map((n) => `${root}src/${WINDOWS[n].preload}`),
+        entrypoints: names.map((n) => `${root}${WINDOWS[n]!.preload}`),
         outdir: `${out}/preload`,
         // Flat: out/preload/<window>.js, wherever the product keeps it.
         naming: '[name].[ext]',
@@ -71,7 +61,7 @@ const program = Effect.gen(function* () {
       }),
       ...names.map((name) =>
         bundle({
-          entrypoints: [`${root}src/${WINDOWS[name].renderer}/main.ts`],
+          entrypoints: [`${root}${WINDOWS[name]!.renderer}/main.ts`],
           outdir: `${out}/renderer/${name}`,
           target: 'browser',
           format: 'iife',
@@ -82,12 +72,15 @@ const program = Effect.gen(function* () {
   );
   yield* Effect.forEach(names, (name) =>
     Effect.promise(() =>
-      cp(`${root}src/${WINDOWS[name].renderer}`, `${out}/renderer/${name}`, {
+      cp(`${root}${WINDOWS[name]!.renderer}`, `${out}/renderer/${name}`, {
         recursive: true,
         filter: (src) => !src.endsWith('.ts'),
       }),
     ),
   );
+  // The design: one stylesheet for every window.
+  const components = yield* Effect.promise(() => Bun.file(`${root}core/design/machete.css`).text());
+  yield* Effect.promise(() => Bun.write(`${out}/renderer/machete.css`, `${tokensCss()}\n${components}`));
   yield* Console.log(`built out/ (${production ? 'production' : 'development'})`);
 });
 

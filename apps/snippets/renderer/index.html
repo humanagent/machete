@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
+    />
+    <link rel="stylesheet" href="../machete.css" />
+    <style>
+      .edit {
+        border-left: 0.5px solid var(--line);
+        padding: 10px 12px 10px;
+      }
+      .bar {
+        display: flex;
+        gap: 6px;
+      }
+      #add {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 17px;
+        font-size: 18px;
+      }
+      .edit .foot {
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel columns">
+      <div class="column">
+        <div class="bar">
+          <input
+            id="search"
+            class="field"
+            placeholder="Search snippets"
+            spellcheck="false"
+            autocomplete="off"
+          />
+          <button id="add" class="btn" title="New snippet (⌘N)">+</button>
+        </div>
+        <ol id="list" class="list"></ol>
+        <div id="empty" class="empty" hidden>No snippets yet</div>
+        <footer class="foot"><span id="count"></span><span>↩ paste · ⌘N new · esc</span></footer>
+      </div>
+      <div class="column edit">
+        <div id="warn" class="warn" hidden>
+          Abbreviations expand once macOS lets Machete see the keyboard (Input Monitoring).
+          <br /><button id="allow" class="btn small">Allow…</button>
+        </div>
+        <label class="label" for="abbr">Abbreviation</label>
+        <input id="abbr" class="field" placeholder=";sig" spellcheck="false" autocomplete="off" />
+        <label class="label" for="content">Content</label>
+        <textarea
+          id="content"
+          class="field mono"
+          placeholder="The text it becomes"
+          spellcheck="false"
+        ></textarea>
+        <footer class="foot">
+          <button
+            id="importMac"
+            class="btn small"
+            title="Add the text replacements from System Settings › Keyboard"
+          >
+            Import from macOS
+          </button>
+          <button id="remove" class="btn small">Delete</button>
+        </footer>
+      </div>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>

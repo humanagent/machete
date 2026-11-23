@@ -1,12 +1,16 @@
 import AppKit
 
-/// Exports an SF Symbol as a template PNG (menu bar icon), so the Electron tray matches the native one.
+/// Exports an SF Symbol, or an SVG file drawn `pointSize` tall (the menu bar icon), as a template PNG.
 enum SymbolIcon {
     static func export(name: String, pointSize: CGFloat, scale: CGFloat, weight: String = "regular", to path: String) throws {
         let w: NSFont.Weight = ["medium": .medium, "semibold": .semibold, "bold": .bold, "light": .light][weight] ?? .regular
         let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: w)
-        guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config) else {
-            throw HelperError(message: "No SF Symbol named \(name)")
+        guard let base = name.hasSuffix(".svg")
+            ? NSImage(contentsOfFile: name)
+            : NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+        else { throw HelperError(message: "No SF Symbol or SVG named \(name)") }
+        if name.hasSuffix(".svg") {
+            base.size = NSSize(width: base.size.width / base.size.height * pointSize, height: pointSize)
         }
         let size = NSSize(width: ceil(base.size.width), height: ceil(base.size.height))
         let px = NSSize(width: size.width * scale, height: size.height * scale)

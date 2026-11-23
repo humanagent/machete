@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { HttpClientError } from 'effect/http';
 import { HttpClientRequest } from 'effect/http';
-import { AppPaths } from '../../src/core/services/AppPaths';
-import { fromHttpError, networkMessage } from '../../src/core/services/Network';
+import { AppPaths } from '../../core/services/AppPaths';
+import { fromHttpError, networkMessage } from '../../core/services/Network';
 
 test('transport failures read like macOS', () => {
   expect(networkMessage({ cause: { code: 'ENOTFOUND' } })).toBe(

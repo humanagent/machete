@@ -1,5 +1,6 @@
-// Builds the macOS helper (native/ → native/bin/machete-native) and exports the SF Symbols the UI uses
-// (assets/trayTemplate*.png and assets/icons/*.png + icons.css). macOS only; a no-op elsewhere.
+// Builds the macOS helper (native/ → native/bin/machete-native), the glass addon (native/glass →
+// native/bin/machete-glass.node) and exports the menu bar icon and the SF Symbols
+// the UI uses (assets/trayTemplate*.png and assets/icons/*.png + icons.css). macOS only; a no-op elsewhere.
 import { mkdir } from 'node:fs/promises';
 import { $ } from 'bun';
 import { Console, Effect } from 'effect';
@@ -30,9 +31,20 @@ const buildHelper = Effect.gen(function* () {
   yield* sh(() => mkdir(`${root}native/bin`, { recursive: true }));
   yield* sh(() => $`cp ${root}native/.build/release/machete-native ${helper}`);
   yield* sh(() => $`codesign --force --sign - ${helper}`.quiet().nothrow());
-  yield* sh(() => $`${helper} icon sparkles 15 ${root}assets/trayTemplate.png 1`);
-  yield* sh(() => $`${helper} icon sparkles 15 ${root}assets/trayTemplate@2x.png 2`);
+  yield* sh(() => $`${helper} icon ${root}assets/tray.svg 17 ${root}assets/trayTemplate.png 1`);
+  yield* sh(() => $`${helper} icon ${root}assets/tray.svg 17 ${root}assets/trayTemplate@2x.png 2`);
   yield* Console.log('native helper ready: native/bin/machete-native');
+});
+
+/** Liquid Glass for our windows: it needs no SDK or headers beyond the command-line tools. */
+const buildGlass = Effect.gen(function* () {
+  const addon = `${root}native/bin/machete-glass.node`;
+  yield* sh(
+    () =>
+      $`clang++ -std=c++17 -fobjc-arc -O2 -Wall -Werror -arch arm64 -mmacosx-version-min=14.0 -bundle -undefined dynamic_lookup -fvisibility=hidden -framework AppKit ${root}native/glass/glass.mm -o ${addon}`,
+  );
+  yield* sh(() => $`codesign --force --sign - ${addon}`.quiet().nothrow());
+  yield* Console.log('glass ready: native/bin/machete-glass.node');
 });
 
 const exportIcon = ([cls, symbol, pt, weight]: (typeof ICONS)[number]) =>
@@ -50,6 +62,7 @@ const exportIcon = ([cls, symbol, pt, weight]: (typeof ICONS)[number]) =>
 const program = Effect.gen(function* () {
   if (process.platform !== 'darwin') return yield* Console.log('machete-native is macOS-only; skipping.');
   yield* buildHelper;
+  yield* buildGlass;
   yield* sh(() => mkdir(`${root}assets/icons`, { recursive: true }));
   const rules = yield* Effect.forEach(ICONS, exportIcon);
   yield* sh(() =>

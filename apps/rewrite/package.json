@@ -1,0 +1,6 @@
+{
+  "name": "@machete/rewrite",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fixes or rewrites the selected text, in any app."
+}

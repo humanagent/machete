@@ -1,11 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  besideSettings,
-  missing,
-  NOTHING_GRANTED,
-  PERMISSIONS,
-  permission,
-} from '../../src/core/permissions';
+import { besideSettings, missing, NOTHING_GRANTED, PERMISSIONS, permission } from '../../core/permissions';
 
 describe('missing', () => {
   test('lists what is not granted, in the order the guide shows it', () => {

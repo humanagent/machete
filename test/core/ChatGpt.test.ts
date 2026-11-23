@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { Effect, Layer, Stream } from 'effect';
-import { ChatGptError } from '../../src/core/errors';
-import { Auth } from '../../src/core/services/Auth';
+import { ChatGptError } from '../../core/errors';
+import { Auth } from '../../core/services/Auth';
 import {
   ChatGpt,
   describe as describeError,
   parseErrorReply,
   parseModels,
   readEvents,
-} from '../../src/core/services/ChatGpt';
+} from '../../core/services/ChatGpt';
 import { bodyText, fakeHttp, json, sse } from '../support/fakes';
 
 const lines = (...l: ReadonlyArray<string>) => Stream.make(...l);

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
+    />
+    <link rel="stylesheet" href="../machete.css" />
+    <style>
+      .columns {
+        grid-template-columns: 290px minmax(0, 1fr);
+      }
+      .edit {
+        border-left: 0.5px solid var(--line);
+        padding: var(--gap) 12px;
+      }
+      .bar {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .bar .field {
+        flex: 1;
+        min-width: 0;
+      }
+      .round {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 17px;
+        font-size: 16px;
+      }
+      /* The panel moves from its margins and its feet. */
+      .column,
+      .foot {
+        -webkit-app-region: drag;
+      }
+      .list,
+      .field,
+      .btn {
+        -webkit-app-region: no-drag;
+      }
+      .edit .foot {
+        gap: 6px;
+        padding: 0;
+      }
+      #note {
+        flex: 1;
+        padding: 0 8px 0 14px;
+      }
+      .over textarea {
+        background: var(--fill-selected);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel columns">
+      <div class="column">
+        <div class="bar">
+          <input id="search" class="field" placeholder="Search bots" spellcheck="false" autocomplete="off" />
+          <button id="add" class="btn round" title="New bot (⌘N)" aria-label="New bot">+</button>
+        </div>
+        <ol id="list" class="list"></ol>
+        <div id="empty" class="empty" hidden>No matches</div>
+        <footer class="foot"><span id="count"></span><span>↩ use · ⌘N new · esc</span></footer>
+      </div>
+      <div id="edit" class="column edit">
+        <div class="bar">
+          <input id="name" class="field" placeholder="Name" aria-label="Name" autocomplete="off" />
+          <button id="use" class="btn primary">Use this bot</button>
+          <button id="close" class="btn round" title="Close (esc)" aria-label="Close">✕</button>
+        </div>
+        <label class="label" for="instructions">How it should behave</label>
+        <textarea id="instructions" class="field"></textarea>
+        <label class="label" for="context"
+          >What it should know: your resume, the job description, notes</label
+        >
+        <textarea id="context" class="field"></textarea>
+        <footer class="foot">
+          <span id="note"></span>
+          <button id="choose" class="btn small">Add files…</button>
+          <button id="remove" class="btn small">Delete</button>
+        </footer>
+      </div>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>

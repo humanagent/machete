@@ -15,6 +15,42 @@
         "electron-updater": "6.8.11",
       },
     },
+    "apps/calculator": {
+      "name": "@machete/calculator",
+      "version": "0.0.0",
+    },
+    "apps/clipboard": {
+      "name": "@machete/clipboard",
+      "version": "0.0.0",
+    },
+    "apps/copilot": {
+      "name": "@machete/copilot",
+      "version": "0.0.0",
+    },
+    "apps/dictation": {
+      "name": "@machete/dictation",
+      "version": "0.0.0",
+    },
+    "apps/rewrite": {
+      "name": "@machete/rewrite",
+      "version": "0.0.0",
+    },
+    "apps/screenshot": {
+      "name": "@machete/screenshot",
+      "version": "0.0.0",
+    },
+    "apps/snippets": {
+      "name": "@machete/snippets",
+      "version": "0.0.0",
+    },
+    "apps/windows": {
+      "name": "@machete/windows",
+      "version": "0.0.0",
+    },
+    "core": {
+      "name": "@machete/core",
+      "version": "0.0.0",
+    },
   },
   "packages": {
     "@aws-sdk/client-dynamodb": ["@aws-sdk/client-dynamodb@3.1170.0", "", { "dependencies": { "@aws-sdk/core": "^3.981.0", "@aws-sdk/credential-provider-node": "^3.972.97", "@aws-sdk/dynamodb-codec": "^3.973.58", "@aws-sdk/middleware-endpoint-discovery": "^3.972.39", "@aws-sdk/types": "^3.975.1", "@smithy/core": "^3.40.0", "@smithy/fetch-http-handler": "^5.8.1", "@smithy/node-http-handler": "^4.14.2", "@smithy/types": "^4.20.0", "tslib": "^2.6.2" } }, "sha512-wg/UTlI2OYKdn9LUIOWAliTewoCdQa8HCVsJcZwf9XxO1ChsT8ZvRc4DEJVhwIkGS/JTlWW0Sv77qxn9Fy5YJQ=="],
@@ -78,6 +114,24 @@
     "@electron/windows-sign": ["@electron/windows-sign@1.2.2", "", { "dependencies": { "cross-dirname": "^0.1.0", "debug": "^4.3.4", "fs-extra": "^11.1.1", "minimist": "^1.2.8", "postject": "^1.0.0-alpha.6" }, "bin": { "electron-windows-sign": "bin/electron-windows-sign.js" } }, "sha512-dfZeox66AvdPtb2lD8OsIIQh12Tp0GNCRUDfBHIKGpbmopZto2/A8nSpYYLoedPIHpqkeblZ/k8OV0Gy7PYuyQ=="],
 
     "@isaacs/fs-minipass": ["@isaacs/fs-minipass@4.0.1", "", { "dependencies": { "minipass": "^7.0.4" } }, "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w=="],
+
+    "@machete/calculator": ["@machete/calculator@workspace:apps/calculator"],
+
+    "@machete/clipboard": ["@machete/clipboard@workspace:apps/clipboard"],
+
+    "@machete/copilot": ["@machete/copilot@workspace:apps/copilot"],
+
+    "@machete/core": ["@machete/core@workspace:core"],
+
+    "@machete/dictation": ["@machete/dictation@workspace:apps/dictation"],
+
+    "@machete/rewrite": ["@machete/rewrite@workspace:apps/rewrite"],
+
+    "@machete/screenshot": ["@machete/screenshot@workspace:apps/screenshot"],
+
+    "@machete/snippets": ["@machete/snippets@workspace:apps/snippets"],
+
+    "@machete/windows": ["@machete/windows@workspace:apps/windows"],
 
     "@malept/cross-spawn-promise": ["@malept/cross-spawn-promise@2.0.0", "", { "dependencies": { "cross-spawn": "^7.0.1" } }, "sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg=="],
 

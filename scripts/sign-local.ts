@@ -22,6 +22,7 @@ const program = Effect.gen(function* () {
   // Inside out: nested code first, the helper (same identity as the app), then the app that seals them.
   yield* sign(app, true);
   yield* sign(`${app}/Contents/MacOS/machete-native`, false);
+  yield* sign(`${app}/Contents/MacOS/machete-glass.node`, false);
   yield* sign(app, false);
   yield* sh(() => $`codesign --verify --deep --strict ${app}`.quiet());
   yield* Console.log(`signed with "${IDENTITY}" (${hash.slice(0, 8)}…)`);

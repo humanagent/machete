@@ -1,0 +1,6 @@
+{
+  "name": "@machete/snippets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Abbreviations that become text as you type."
+}

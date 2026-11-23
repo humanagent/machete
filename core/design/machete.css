@@ -1,0 +1,268 @@
+/* Machete's components, for every window. Colors and sizes are variables from tokens.ts; an app's own page only says
+   where its things go. */
+@font-face {
+  font-family: 'Inter';
+  src: url('../../assets/InterVariable.ttf') format('truetype');
+  font-weight: 100 900;
+}
+
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+html {
+  color-scheme: dark;
+}
+body {
+  font: 13px/1.4 var(--sans);
+  color: var(--text);
+  text-shadow: var(--text-shadow);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  text-shadow: inherit;
+  margin: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+}
+button {
+  padding: 0;
+  cursor: default;
+}
+input,
+textarea {
+  caret-color: var(--focus);
+  user-select: text;
+}
+::placeholder {
+  color: var(--text-dim);
+}
+::selection {
+  background: var(--selection);
+}
+::-webkit-scrollbar {
+  display: none;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: 0;
+}
+
+/* What floats. One per window, and nothing inside it is glass again. */
+.panel {
+  position: relative;
+  height: 100%;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--rim);
+  pointer-events: none;
+}
+
+/* Opaque content in a panel. */
+.sheet {
+  border-radius: var(--radius-sheet);
+  background: var(--sheet);
+  text-shadow: none;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: var(--gap);
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+/* Fields: capsules; a text box keeps the sheet's corners. */
+.field {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 17px;
+  background: var(--fill);
+  font-size: 14px;
+  cursor: text;
+}
+textarea.field {
+  flex: 1;
+  border-radius: var(--radius-sheet);
+  padding: 10px 14px;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mono {
+  font: 12.5px/1.45 var(--mono);
+}
+
+.btn {
+  flex: none;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 15px;
+  background: var(--fill);
+}
+.btn:hover {
+  background: var(--fill-hover);
+}
+.btn[aria-pressed='true'] {
+  background: var(--fill-strong);
+}
+.btn.small {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 11.5px;
+}
+/* What the panel is for: one per panel. */
+.btn.primary {
+  background: var(--accent);
+  font-weight: 550;
+}
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+.btn span {
+  margin-left: 6px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+.btn.primary span {
+  color: var(--text-soft);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 14px;
+  border-radius: 15px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.list .text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list .text.blank,
+.list .key {
+  color: var(--text-dim);
+}
+.list .key {
+  font-size: 12.5px;
+}
+.list .abbr {
+  flex: none;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--fill);
+  font-size: 12px;
+}
+.list .selected {
+  background: var(--fill-selected);
+}
+.list .selected .key {
+  color: var(--text);
+}
+.list .selected .abbr {
+  background: var(--fill-strong);
+}
+
+.empty {
+  padding: 24px 10px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.label {
+  padding: 0 14px;
+  margin-top: 2px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.warn {
+  padding: 10px 14px;
+  border-radius: var(--radius-sheet);
+  background: var(--warn-fill);
+  font-size: 12px;
+}
+.warn button {
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:root:root {
+    --surface: var(--surface-opaque);
+    --copilot-alpha: 1;
+  }
+}
+@media (prefers-contrast: more) {
+  :root:root:root {
+    --surface: var(--surface-opaque);
+    --copilot-alpha: 1;
+    --rim: var(--text);
+    --text-soft: var(--text);
+    --text-dim: #ececef;
+    --fill-selected: var(--accent);
+  }
+}

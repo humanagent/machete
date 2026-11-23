@@ -1,0 +1,6 @@
+{
+  "name": "@machete/calculator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A notepad that calculates as you type."
+}

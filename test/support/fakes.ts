@@ -6,9 +6,9 @@ import { NodeServices } from '@effect/platform-node';
 import { Effect, Layer, Option, PubSub, Ref, Stream } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import type { HttpClientRequest } from 'effect/http';
-import { AppPaths } from '../../src/core/services/AppPaths';
-import { ExternalBrowser } from '../../src/core/services/ExternalBrowser';
-import { type HelperEvent, NativeHelper, type NativeHelperShape } from '../../src/core/services/NativeHelper';
+import { AppPaths } from '../../core/services/AppPaths';
+import { ExternalBrowser } from '../../core/services/ExternalBrowser';
+import { type HelperEvent, NativeHelper, type NativeHelperShape } from '../../core/services/NativeHelper';
 
 /** A fresh support folder per test, deleted afterwards. */
 export const withTempDir = <A, E, R>(f: (dir: string) => Effect.Effect<A, E, R>) =>
@@ -75,7 +75,7 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       dictateStop: (cancel) => record(`dictate.stop:${cancel}`).pipe(Effect.as(cancel ? '' : 'hola mundo')),
       frontmost: Effect.succeed({ name: 'TextEdit', icon: '' }),
       paste: (text) => Effect.sync(() => void log.typed.push(text)),
-      watchRightOption: record('rightoption.watch'),
+      watchModifiers: record('modifiers.watch'),
       snapWindow: (to) => record(`window.snap:${to}`),
       watchClipboard: record('clipboard.watch'),
       setSnippets: (items) => record(`snippets.set:${items.map((s) => s.abbreviation).join(',')}`),

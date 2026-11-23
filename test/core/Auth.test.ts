@@ -3,15 +3,9 @@ import { existsSync } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
-import {
-  Auth,
-  describeTokenError,
-  formEncode,
-  tokensFromFile,
-  tokensToFile,
-} from '../../src/core/services/Auth';
-import { ExternalBrowser } from '../../src/core/services/ExternalBrowser';
-import { Settings } from '../../src/core/services/Settings';
+import { Auth, describeTokenError, formEncode, tokensFromFile, tokensToFile } from '../../core/services/Auth';
+import { ExternalBrowser } from '../../core/services/ExternalBrowser';
+import { Settings } from '../../core/services/Settings';
 import { BrowserNoop, bodyText, fakeHttp, filesAt, json, runInTempDir } from '../support/fakes';
 
 const REFERENCE_EPOCH = 978_307_200;

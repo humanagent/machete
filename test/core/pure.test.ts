@@ -1,6 +1,6 @@
 // Pure helpers of the Electron layer and the logger (no Electron needed).
 import { expect, test } from 'bun:test';
-import { formatLine } from '../../src/core/services/FileLogger';
+import { formatLine } from '../../core/services/FileLogger';
 
 test('log lines are "HH:MM:SS.mmm message"', () => {
   const date = new Date(2026, 10, 21, 9, 5, 7, 42);

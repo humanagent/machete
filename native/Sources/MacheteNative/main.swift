@@ -16,7 +16,7 @@ import AVFoundation
 //   {"id":5,"cmd":"dictate.stop","cancel":false}     -> {"id":5,"ok":true,"text":…} (mic only, no AI)
 //   {"id":6,"cmd":"frontmost"}                       -> {"id":6,"ok":true,"name":…,"icon":dataURL}
 //   {"id":7,"cmd":"paste","text":…}                  -> {"id":7,"ok":true|false} (types into the focused app)
-//   {"id":8,"cmd":"rightoption.watch"}                  -> {"id":8,"ok":true|false}; then {"type":"rightoption"} on each lone right-⌥ tap
+//   {"id":8,"cmd":"modifiers.watch"}                 -> {"id":8,"ok":true|false}; then {"type":"modifier","key":"RightAlt"|"RightCommand"|"RightControl"|"RightShift"} on each lone tap
 //   {"id":9,"cmd":"window.snap","to":"left"|"right"|"maximize"} -> {"id":9,"ok":true|false} (the focused window of the frontmost app)
 //   {"id":10,"cmd":"clipboard.watch"}              -> {"id":10,"ok":true}; then {"type":"clipboard","text":…} on each new text copy
 //   {"id":11,"cmd":"clipboard.paste","text":…}     -> {"id":11,"ok":true|false} (puts it on the clipboard and sends ⌘V)
@@ -223,8 +223,8 @@ final class Server {
             let ok = await Dictation.paste(cmd["text"] as? String ?? "")
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "Machete needs Accessibility permission to type into other apps."])
 
-        case "rightoption.watch":
-            let ok = Dictation.watchRightOption { Out.emit(["type": "rightoption"]) }
+        case "modifiers.watch":
+            let ok = ModifierTaps.watch { key in Out.emit(["type": "modifier", "key": key]) }
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "input-monitoring"])
 
         case "window.snap":

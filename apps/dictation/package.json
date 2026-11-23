@@ -1,0 +1,6 @@
+{
+  "name": "@machete/dictation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Speak, and the words are typed into the app you are in."
+}

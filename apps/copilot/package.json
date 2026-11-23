@@ -1,0 +1,6 @@
+{
+  "name": "@machete/copilot",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sees your screen, listens to the call and answers with your ChatGPT."
+}

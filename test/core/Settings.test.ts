@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Effect } from 'effect';
-import { defaultSettings, Settings } from '../../src/core/services/Settings';
+import { defaultSettings, Settings } from '../../core/services/Settings';
 import { filesAt, withTempDir } from '../support/fakes';
 
 /** Runs `f` with a Settings service over a temp folder, after `seed` prepared it. */
@@ -55,4 +55,17 @@ describe('Settings', () => {
       model: defaultSettings.model,
     });
   });
+});
+test('shortcuts and switches are kept, and older files get their defaults', async () => {
+  const [before, after] = await run(
+    (s) =>
+      Effect.gen(function* () {
+        const first = yield* s.get;
+        yield* s.update({ hotkeys: { 'calculator.toggle': ['Alt+K'] }, off: ['windows'] });
+        return [first, yield* s.get] as const;
+      }),
+    (dir) => writeFile(join(dir, 'settings.json'), JSON.stringify({ model: 'gpt-x' })),
+  );
+  expect(before).toMatchObject({ hotkeys: {}, off: [], model: 'gpt-x' });
+  expect(after).toMatchObject({ hotkeys: { 'calculator.toggle': ['Alt+K'] }, off: ['windows'] });
 });

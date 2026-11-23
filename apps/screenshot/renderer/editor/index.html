@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; script-src 'self'"
+    />
+    <link rel="stylesheet" href="../machete.css" />
+    <style>
+      .panel {
+        display: flex;
+        flex-direction: column;
+        -webkit-app-region: drag;
+      }
+      /* The picture is content: on an opaque table. */
+      .view {
+        flex: 1;
+        min-height: 0;
+        margin: var(--gap) var(--gap) 0;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 6px;
+        box-shadow: var(--shadow-soft);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px 13px;
+      }
+      .bar .space {
+        flex: 1;
+      }
+      button {
+        -webkit-app-region: no-drag;
+      }
+      .group {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .group.off {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .swatch {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-size: cover;
+        background-position: center;
+        box-shadow: inset 0 0 0 1px var(--fill-strong);
+      }
+      .swatch[aria-pressed='true'] {
+        box-shadow: 0 0 0 2px var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <div class="view sheet"><canvas id="canvas"></canvas></div>
+      <div class="bar">
+        <button id="frame" class="btn" aria-pressed="true">Frame<span>F</span></button>
+        <div class="group" id="backgrounds" role="group" aria-label="Background"></div>
+        <div class="group" id="sizes" role="group" aria-label="Frame size"></div>
+        <div class="space"></div>
+        <button id="close" class="btn">Close<span>esc</span></button>
+        <button id="save" class="btn">Save<span>⌘S</span></button>
+        <button id="copy" class="btn primary">Copy<span>↩</span></button>
+      </div>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>

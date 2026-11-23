@@ -1,0 +1,6 @@
+{
+  "name": "@machete/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What every mini app stands on: the menu bar, shortcuts, Settings, panels, the macOS helper and ChatGPT."
+}

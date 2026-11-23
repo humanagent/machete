@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
-import { AppPaths } from '../../src/core/services/AppPaths';
-import { FileLoggerLive } from '../../src/core/services/FileLogger';
+import { AppPaths } from '../../core/services/AppPaths';
+import { FileLoggerLive } from '../../core/services/FileLogger';
 import { withTempDir } from '../support/fakes';
 
 const logInto = (logFile: string) =>

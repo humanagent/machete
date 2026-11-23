@@ -3,12 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
 import { Effect, Layer, Option, type Scope, Stream } from 'effect';
-import {
-  helperBinary,
-  type HelperEvent,
-  NativeHelper,
-  parseLine,
-} from '../../src/core/services/NativeHelper';
+import { helperBinary, type HelperEvent, NativeHelper, parseLine } from '../../core/services/NativeHelper';
 import { withTempDir } from '../support/fakes';
 
 describe('parseLine', () => {
@@ -22,8 +17,8 @@ describe('parseLine', () => {
       Option.some({ _tag: 'Event', event: { type: 'commit', speaker: 'them', text: 'Hi?' } }),
     );
     expect(parseLine('{"type":"commit","speaker":"robot","text":"x"}')).toEqual(Option.none());
-    expect(parseLine('{"type":"rightoption"}')).toEqual(
-      Option.some({ _tag: 'Event', event: { type: 'rightoption' } }),
+    expect(parseLine('{"type":"modifier","key":"RightAlt"}')).toEqual(
+      Option.some({ _tag: 'Event', event: { type: 'modifier', key: 'RightAlt' } }),
     );
   });
   test('garbage is ignored', () => {
@@ -98,7 +93,7 @@ describe('the serve protocol, against a stand-in helper', () => {
         text: h.dictateStop(false),
         front: h.frontmost,
         paste: h.paste('hola'),
-        watch: h.watchRightOption,
+        watch: h.watchModifiers,
         snap: h.snapWindow('left'),
         listen: h.startListening('en-US'),
         pause: h.setPaused(true),

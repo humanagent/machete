@@ -2,14 +2,19 @@
   "name": "machete",
   "productName": "Machete",
   "version": "0.3.0",
-  "description": "Translucent overlay that sees your screen, listens to the conversation and answers with your ChatGPT plan.",
+  "description": "A suite of small Mac tools in one menu bar app: Copilot, Dictation, Rewrite, Windows, Clipboard, Screenshots, Snippets and Calculator.",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "core"
+  ],
   "main": "out/main/main.js",
   "scripts": {
     "native": "bun scripts/native.ts",
     "build": "bun scripts/build.ts",
     "start": "bun run native && bun run build && electron .",
     "dev": "bun run build && electron .",
+    "new-app": "bun scripts/new-app.ts",
     "typecheck": "bun check",
     "format": "bun fmt",
     "lint": "bun check && bun fmt --check",
@@ -61,7 +66,8 @@
       "entitlements": "scripts/entitlements.mac.plist",
       "entitlementsInherit": "scripts/entitlements.mac.plist",
       "binaries": [
-        "Contents/MacOS/machete-native"
+        "Contents/MacOS/machete-native",
+        "Contents/MacOS/machete-glass.node"
       ],
       "notarize": true,
       "extendInfo": {
@@ -81,7 +87,8 @@
         "from": "native/bin",
         "to": "MacOS",
         "filter": [
-          "machete-native"
+          "machete-native",
+          "machete-glass.node"
         ]
       }
     ]

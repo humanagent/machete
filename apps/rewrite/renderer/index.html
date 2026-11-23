@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
+    />
+    <link rel="stylesheet" href="../machete.css" />
+    <style>
+      /* The selected text, in two lines at most. */
+      #text {
+        flex: none;
+        border-top: 0.5px solid var(--line);
+        padding: 8px 14px 4px;
+        font-size: 11.5px;
+        color: var(--text-dim);
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel column">
+      <input id="ask" class="field" placeholder="What should change?" spellcheck="false" autocomplete="off" />
+      <ol id="list" class="list"></ol>
+      <div id="text"></div>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>

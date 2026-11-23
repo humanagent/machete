@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="218 226 640 560" width="640" height="560">
+  <!-- The app icon's desk and spark in one color, with heavier lines so it reads at menu bar size. -->
+  <g stroke="#000" stroke-width="50" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M326 590 L306 752"/>
+    <path d="M462 590 L462 752"/>
+    <path d="M592 490 L592 752"/>
+    <path d="M760 478 L780 752"/>
+    <path d="M462 664 L592 664"/>
+    <path d="M304 580 L280 436"/>
+    <path d="M310 584 L470 584" stroke-width="58"/>
+    <path d="M574 484 L786 462" stroke-width="72"/>
+  </g>
+  <path d="M684 232 l24 60 60 24 -60 24 -24 60 -24 -60 -60 -24 60 -24z" fill="#000"/>
+</svg>

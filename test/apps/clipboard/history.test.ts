@@ -27,9 +27,9 @@ test('forget removes an entry', () => {
 });
 
 test('search matches every word in any order, ignoring case and accents', () => {
-  const items = ['Reunión con Nick', 'https://github.com/repeapp/repe', 'nick molnar'];
-  expect(search(items, 'nick reunion')).toEqual(['Reunión con Nick']);
-  expect(search(items, 'NICK')).toEqual(['Reunión con Nick', 'nick molnar']);
+  const items = ['Reunión con Ana', 'https://example.com/page', 'ana gómez'];
+  expect(search(items, 'ana reunion')).toEqual(['Reunión con Ana']);
+  expect(search(items, 'ANA')).toEqual(['Reunión con Ana', 'ana gómez']);
   expect(search(items, '  ')).toEqual(items);
 });
 

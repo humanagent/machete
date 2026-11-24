@@ -268,7 +268,7 @@ final class Server {
             reply(id, ["ok": true])
 
         case "clipboard.paste":
-            let ok = Clipboard.paste(cmd["text"] as? String ?? "")
+            let ok = await Clipboard.paste(cmd["text"] as? String ?? "")
             reply(id, ok ? ["ok": true] : ["ok": false, "error": "accessibility"])
 
         case "snippets.set":

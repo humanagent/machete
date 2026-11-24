@@ -31,9 +31,9 @@ export const TOKENS = {
   text: '#ffffff',
   'text-soft': '#eaebee',
   'text-dim': '#cfd1d6',
-  // Surfaces. Over glass they let more through; without it they hold the text by themselves.
+  // Surfaces. Over glass they let more through, and still hold the text: clear glass barely darkens a white page.
   surface: ink(0.84),
-  'surface-glass': ink(0.1),
+  'surface-glass': ink(0.67),
   'surface-opaque': `rgb(${INK.join(' ')})`,
   'copilot-rgb': INK.join(' '),
   /** What Settings says (set by the page), see ON_GLASS. */

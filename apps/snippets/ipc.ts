@@ -15,10 +15,11 @@ export type SnippetsState = typeof SnippetsState.Type;
 
 export const SnippetsCommand = Schema.TaggedUnion({
   Paste: { id: Schema.String },
+  /** Makes its text the last thing copied, for the next ⌘V. */
+  Copy: { id: Schema.String },
   Add: {},
   Update: { id: Schema.String, abbreviation: Schema.String, content: Schema.String },
   Remove: { id: Schema.String },
-  ImportMac: {},
   Permissions: {},
   Close: {},
 });

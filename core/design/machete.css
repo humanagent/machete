@@ -213,6 +213,28 @@ textarea.field {
   background: var(--fill-strong);
 }
 
+/* Invisible in screen sharing, when lit. */
+.ghost {
+  flex: none;
+  width: 30px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--text-dim);
+}
+.ghost:hover {
+  color: var(--text);
+  background: var(--fill);
+}
+.ghost.on {
+  color: var(--on);
+}
+.ghost svg {
+  width: 18px;
+  height: 18px;
+}
+
 .empty {
   padding: 24px 10px;
   text-align: center;

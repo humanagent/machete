@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { expansions, merge, search } from '../../../apps/snippets/snippets';
+import { expansions, search } from '../../../apps/snippets/snippets';
 
 const s = (id: string, abbreviation: string, content: string) => ({ id, abbreviation, content });
 
@@ -14,19 +14,4 @@ test('only snippets with an abbreviation and text are expanded', () => {
   expect(expansions([s('1', ' gg ', 'x'), s('2', '', 'y'), s('3', 'zz', '')])).toEqual([
     { abbreviation: 'gg', content: 'x' },
   ]);
-});
-
-test('merge adds new abbreviations and skips ones already there', () => {
-  let n = 0;
-  const [next, added] = merge(
-    [s('1', 'gg', 'x')],
-    [
-      { abbreviation: 'gg', content: 'other' },
-      { abbreviation: 'omw', content: 'On my way!' },
-      { abbreviation: 'omw', content: 'dup' },
-    ],
-    () => `new${++n}`,
-  );
-  expect(added).toBe(1);
-  expect(next).toEqual([s('1', 'gg', 'x'), s('new1', 'omw', 'On my way!')]);
 });

@@ -16,8 +16,6 @@ const ICONS: ReadonlyArray<readonly [string, string, number, string]> = [
   ['binoculars', 'binoculars', 16, 'regular'],
   ['binoculars-fill', 'binoculars.fill', 16, 'regular'],
   ['grid', 'square.grid.2x2', 15, 'regular'],
-  ['eye', 'eye', 16, 'regular'],
-  ['eye-slash', 'eye.slash', 16, 'regular'],
   ['waveform', 'waveform', 16, 'regular'],
   ['copy', 'doc.on.doc', 12, 'regular'],
   ['doc-text', 'doc.text', 12, 'medium'],

@@ -26,6 +26,7 @@ import { AppsLive } from '../apps/main';
 import { Apps } from './electron/Apps';
 import { Dock } from './electron/Dock';
 import { Hotkeys } from './electron/Hotkeys';
+import { Invisibility } from './electron/Invisibility';
 import { SettingsWindow } from './electron/SettingsWindow';
 import { StatusMenuLive } from './electron/StatusMenu';
 import { AppPaths } from './services/AppPaths';
@@ -81,6 +82,7 @@ const Ui = Layer.mergeAll(AppsLive, StatusMenuLive, DictationMenuLive).pipe(
   Layer.provideMerge(Dictation.layer),
   Layer.provideMerge(SettingsWindow.layer),
   Layer.provideMerge(Dock.layer),
+  Layer.provideMerge(Invisibility.layer),
   Layer.provideMerge(Apps.layer),
   Layer.provideMerge(Hotkeys.layer),
   Layer.provideMerge(ModifierTaps.layer),

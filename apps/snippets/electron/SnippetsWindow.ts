@@ -1,7 +1,9 @@
-// The snippets panel (⇧⌘C): search your snippets and paste one, or add and edit them.
+// The snippets panel (⇧⌘C): search your snippets and paste or copy one, or add and edit them.
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema, Stream } from 'effect';
 import { Channels } from '../../../core/channels';
+import { Invisibility } from '../../../core/electron/Invisibility';
+import { Clipboard } from '../../../core/electron/Platform';
 import { makePanel } from '../../../core/electron/Panel';
 import { makeRunner } from '../../../core/electron/Runner';
 import { PermissionsGuide } from '../../../core/services/PermissionsGuide';
@@ -16,6 +18,8 @@ export class SnippetsWindow extends Context.Service<
     SnippetsWindow,
     Effect.gen(function* () {
       const snippets = yield* Snippets;
+      const clipboard = yield* Clipboard;
+      const invisibility = yield* Invisibility;
       const guide = yield* PermissionsGuide;
       const run = yield* makeRunner<never>();
       const panel = yield* makePanel('snippets', { width: 800, height: 520 });
@@ -44,20 +48,25 @@ export class SnippetsWindow extends Context.Service<
           Effect.catch((e) => Effect.logWarning(`snippets: paste: ${e.message}`)),
         );
 
+      // Nothing is typed anywhere: the panel goes, and ⌘V pastes it where you want.
+      const copy = (id: string) =>
+        snippets.items.pipe(
+          Effect.map((xs) => xs.find((s) => s.id === id)?.content ?? ''),
+          Effect.flatMap((text) =>
+            text === '' ? Effect.void : clipboard.write(text).pipe(Effect.andThen(panel.hide)),
+          ),
+        );
+
       const decode = Schema.decodeUnknownOption(SnippetsCommand);
       const onCommand = (_event: Electron.IpcMainEvent, raw: unknown) =>
         Option.map(decode(raw), (command) =>
           run(
             SnippetsCommand.match(command, {
               Paste: ({ id }) => paste(id),
+              Copy: ({ id }) => copy(id),
               Add: () => snippets.add.pipe(Effect.flatMap((id) => sendIfOpen(id))),
               Update: ({ id, abbreviation, content }) => snippets.update(id, abbreviation, content),
               Remove: ({ id }) => snippets.remove(id),
-              ImportMac: () =>
-                snippets.importMac.pipe(
-                  Effect.tap((n) => Effect.logInfo(`snippets: imported ${n} from macOS`)),
-                  Effect.catch((e) => Effect.logWarning(`snippets: import: ${e.message}`)),
-                ),
               Permissions: () => panel.hide.pipe(Effect.andThen(guide.show)),
               Close: () => panel.hide,
             }),
@@ -78,7 +87,13 @@ export class SnippetsWindow extends Context.Service<
           Effect.flatMap(
             Option.match({
               onSome: () => panel.hide,
-              onNone: () => panel.open((w) => Ref.update(opened, (n) => n + 1).pipe(Effect.andThen(send(w)))),
+              onNone: () =>
+                panel.open((w) =>
+                  Ref.update(opened, (n) => n + 1).pipe(
+                    Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                    Effect.andThen(send(w)),
+                  ),
+                ),
             }),
           ),
         ),

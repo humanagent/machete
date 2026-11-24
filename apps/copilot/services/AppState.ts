@@ -62,8 +62,6 @@ export interface AppModel {
   readonly loggedIn: boolean | null;
   readonly signingIn: boolean;
   readonly directSignedIn: boolean;
-  /** Always starts hidden from screen sharing; the eye shows it for this session only. */
-  readonly visibleInCapture: boolean;
   readonly followMode: boolean;
   readonly followBusy: boolean;
   readonly unseenFollow: number;
@@ -109,7 +107,6 @@ export const copilotState = (m: AppModel): CopilotState => ({
   loggedIn: m.loggedIn,
   signingIn: m.signingIn,
   directSignedIn: m.directSignedIn,
-  visibleInCapture: m.visibleInCapture,
   followMode: m.followMode,
   followBusy: m.followBusy,
   unseenFollow: m.unseenFollow,
@@ -160,7 +157,6 @@ export interface AppStateShape {
   readonly collapseToggle: Effect.Effect<void>;
   readonly toggleTranscript: Effect.Effect<void>;
   readonly focusInput: Effect.Effect<void>;
-  readonly toggleCaptureVisibility: Effect.Effect<void>;
   readonly setCardSize: (width: number, height: number, persist: boolean) => Effect.Effect<void>;
   readonly setCardHeight: (height: number, persist: boolean) => Effect.Effect<void>;
   readonly setGlassOpacity: (value: number) => Effect.Effect<void>;
@@ -223,7 +219,6 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         loggedIn: null,
         signingIn: false,
         directSignedIn: false,
-        visibleInCapture: false,
         followMode: false,
         followBusy: false,
         unseenFollow: 0,
@@ -735,7 +730,6 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         collapseToggle,
         toggleTranscript: update((s) => ({ ...s, showTranscript: !s.showTranscript })),
         focusInput: update((s) => ({ ...s, collapsed: false, focusInputTick: s.focusInputTick + 1 })),
-        toggleCaptureVisibility: update((s) => ({ ...s, visibleInCapture: !s.visibleInCapture })),
         setCardSize: (width, height, save) =>
           Effect.gen(function* () {
             const w = Math.max(480, width);

@@ -1,5 +1,6 @@
 // The calculator panel: type a line, its result shows on the right as you type. Click a result to copy it.
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
 import { evaluateSheet, type Rates } from '../evaluate';
 import type { CalculatorBridge, CalculatorState } from '../ipc';
@@ -14,9 +15,7 @@ const el = {
   sheet: byId<HTMLTextAreaElement>('sheet'),
   paint: byId('paint'),
   results: byId('results'),
-  share: byId<HTMLButtonElement>('share'),
 };
-let shared = false;
 let rates: Rates = { USD: 1 };
 let opened = -1;
 
@@ -48,23 +47,7 @@ const paint = (text: string) => {
   );
 };
 
-const EYE =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_OFF =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 5.2A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.200 4.200"/><path d="M3 3l18 18"/></svg>';
-const showShare = () => {
-  el.share.innerHTML = shared ? EYE : EYE_OFF;
-  el.share.classList.toggle('on', shared);
-  el.share.title = shared
-    ? 'Visible in screen sharing. Click to hide it.'
-    : 'Hidden from screen sharing. Click to show it.';
-};
-el.share.addEventListener('mousedown', (e) => e.preventDefault()); // keeps the caret in the sheet
-el.share.addEventListener('click', () => {
-  shared = !shared;
-  showShare();
-  window.calculator.send({ _tag: 'SetShared', shared });
-});
+ghost();
 
 const syncScroll = () => {
   el.paint.scrollTop = el.sheet.scrollTop;
@@ -112,8 +95,6 @@ document.addEventListener('keydown', (e) => {
 const onState = (state: CalculatorState) =>
   Effect.sync(() => {
     rates = state.rates;
-    shared = state.shared;
-    showShare();
     if (state.opened !== opened) {
       opened = state.opened;
       if (document.activeElement !== el.sheet || el.sheet.value === '') el.sheet.value = state.text;

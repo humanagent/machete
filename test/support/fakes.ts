@@ -79,7 +79,6 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       snapWindow: (to) => record(`window.snap:${to}`),
       watchClipboard: record('clipboard.watch'),
       setSnippets: (items) => record(`snippets.set:${items.map((s) => s.abbreviation).join(',')}`),
-      macTextReplacements: Effect.succeed([{ abbreviation: 'omw', content: 'On my way!' }]),
       readSelection: Effect.succeed({ text: 'hola mudno', pid: 7 }),
       replaceSelection: (text, pid) => record(`selection.replace:${pid}:${text}`).pipe(Effect.as(true)),
       pasteClip: (text) => record(`clipboard.paste:${text}`),

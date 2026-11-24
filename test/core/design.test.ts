@@ -107,7 +107,7 @@ test('one panel per page, and a single main button', () => {
     expect(styles(f.endsWith('.html') ? f : f)).not.toContain('backdrop-filter');
 });
 
-test('the panels are glass: neutral, and most of what’s behind comes through', () => {
+test('the panels are glass: neutral, see-through, and they read over a white page', () => {
   const neutral = (rgb: ReadonlyArray<number>) => Math.max(...rgb) - Math.min(...rgb);
   for (const t of ['surface', 'surface-glass', 'surface-opaque', 'veil'] as const)
     expect(neutral(parse(TOKENS[t]).slice(0, 3))).toBeLessThanOrEqual(6);
@@ -115,7 +115,15 @@ test('the panels are glass: neutral, and most of what’s behind comes through',
     expect(neutral(hex(TOKENS[t]))).toBeLessThanOrEqual(10);
   expect(neutral(GLASS_TINT.slice(0, 3).map((c) => c * 255))).toBeLessThanOrEqual(6);
   const through = (1 - GLASS_TINT[3]) * (1 - parse(TOKENS['surface-glass'])[3]!);
-  expect(through).toBeGreaterThanOrEqual(0.85);
+  expect(through).toBeGreaterThanOrEqual(0.3);
+  // Clear glass alone leaves a white page at 207 (measured on macOS 26): the ink does the rest, for the text, the dim
+  // one and the selected row.
+  const [r, g, b, alpha] = parse(TOKENS['surface-glass']);
+  const over = [r!, g!, b!].map((c) => c * alpha! + 207 * (1 - alpha!));
+  const lit = over.map((c) => c + (255 - c) * parse(TOKENS['fill-selected'])[3]!);
+  expect(contrast(hex(TOKENS.text), over)).toBeGreaterThanOrEqual(7);
+  expect(contrast(hex(TOKENS['text-dim']), over)).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(hex(TOKENS.text), lit)).toBeGreaterThanOrEqual(4.5);
   // Copilot is darker, and still glass as it comes (Settings' “Balanced”).
   expect(ON_GLASS['copilot-alpha']).toBe('calc(var(--body-alpha) * 1.5 - 0.42)');
   const copilot = (opacity: number) => (0.5 + 0.5 * opacity) * 1.5 - 0.42;
@@ -123,11 +131,11 @@ test('the panels are glass: neutral, and most of what’s behind comes through',
   expect(copilot(0.8)).toBeLessThan(0.97);
   // White text over it, with a white page behind: what it comes with reads comfortably, the most see-through enough.
   const ink = parse(TOKENS['surface-opaque'])[0]!;
-  const contrast = (opacity: number) => {
+  const copilotContrast = (opacity: number) => {
     const gray = (255 + (ink - 255) * copilot(opacity)) / 255;
     return 1.05 / (((gray + 0.055) / 1.055) ** 2.4 + 0.05);
   };
-  expect(contrast(0.35)).toBeGreaterThanOrEqual(4.5);
-  expect(contrast(0.55)).toBeGreaterThanOrEqual(7);
+  expect(copilotContrast(0.35)).toBeGreaterThanOrEqual(4.5);
+  expect(copilotContrast(0.55)).toBeGreaterThanOrEqual(7);
   expect(read('native/glass/glass.mm')).toContain('.style = kClear');
 });

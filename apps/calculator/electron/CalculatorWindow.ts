@@ -3,6 +3,7 @@ import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema } from 'effect';
 import { Channels } from '../../../core/channels';
 import { Clipboard } from '../../../core/electron/Platform';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { makePanel } from '../../../core/electron/Panel';
 import { makeRunner } from '../../../core/electron/Runner';
 import { CalculatorCommand, type CalculatorState } from '../ipc';
@@ -20,7 +21,7 @@ export class CalculatorWindow extends Context.Service<
       const run = yield* makeRunner<never>();
       const panel = yield* makePanel('calculator', { width: 420, height: 455 });
       const opened = yield* Ref.make(0);
-      const shared = yield* Ref.make(false);
+      const invisibility = yield* Invisibility;
 
       const send = (w: Electron.BrowserWindow) =>
         Effect.gen(function* () {
@@ -29,7 +30,6 @@ export class CalculatorWindow extends Context.Service<
             text,
             rates,
             opened: yield* Ref.get(opened),
-            shared: yield* Ref.get(shared),
           };
           if (!w.isDestroyed()) w.webContents.send(Channels.calculatorState, state);
         });
@@ -41,17 +41,6 @@ export class CalculatorWindow extends Context.Service<
             CalculatorCommand.match(command, {
               SetText: ({ text }) => calculator.setText(text),
               Copy: ({ text }) => clipboard.write(text),
-              SetShared: ({ shared: on }) =>
-                Ref.set(shared, on).pipe(
-                  Effect.andThen(panel.visible),
-                  Effect.flatMap(
-                    Option.match({
-                      onNone: () => Effect.void,
-                      onSome: (w) =>
-                        Effect.sync(() => w.setContentProtection(!on)).pipe(Effect.andThen(send(w))),
-                    }),
-                  ),
-                ),
               Close: () => panel.hide,
             }),
           ),
@@ -70,8 +59,7 @@ export class CalculatorWindow extends Context.Service<
                 panel
                   .open((w) =>
                     Ref.update(opened, (n) => n + 1).pipe(
-                      Effect.andThen(Ref.get(shared)),
-                      Effect.tap((on) => Effect.sync(() => w.setContentProtection(!on))),
+                      Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
                       Effect.andThen(send(w)),
                     ),
                   )

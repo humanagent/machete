@@ -1,6 +1,7 @@
 // Exposes the calculator panel's bridge as `window.calculator`.
 import { contextBridge, ipcRenderer } from 'electron';
 import { Channels } from '../../../core/channels';
+import { exposeGhost } from '../../../core/preload/ghost';
 import { listen } from '../../../core/preload/listen';
 import type { CalculatorBridge, CalculatorState } from '../ipc';
 
@@ -10,3 +11,4 @@ const bridge: CalculatorBridge = {
 };
 
 contextBridge.exposeInMainWorld('calculator', bridge);
+exposeGhost();

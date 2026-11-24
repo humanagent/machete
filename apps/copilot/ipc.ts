@@ -13,7 +13,6 @@ export const CopilotCommand = Schema.TaggedUnion({
   Ask: { question: Schema.String },
   Collapse: {},
   ToggleFollow: {},
-  ToggleCapture: {},
   ToggleListening: {},
   ToggleTranscript: {},
   Reset: {},

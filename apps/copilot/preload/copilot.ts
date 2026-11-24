@@ -2,6 +2,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { Channels } from '../../../core/channels';
 import type { CopilotBridge, CopilotKeys, PanelUpdate } from '../ipc';
+import { exposeGhost } from '../../../core/preload/ghost';
 import { listen } from '../../../core/preload/listen';
 
 const bridge: CopilotBridge = {
@@ -11,3 +12,4 @@ const bridge: CopilotBridge = {
 };
 
 contextBridge.exposeInMainWorld('machete', bridge);
+exposeGhost();

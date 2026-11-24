@@ -43,7 +43,9 @@
         </div>
         <ol id="list" class="list"></ol>
         <div id="empty" class="empty" hidden>No snippets yet</div>
-        <footer class="foot"><span id="count"></span><span>↩ paste · ⌘N new · esc</span></footer>
+        <footer class="foot">
+          <span id="count"></span><span>↩ paste · double-click copy · ⌘N new · esc</span>
+        </footer>
       </div>
       <div class="column edit">
         <div id="warn" class="warn" hidden>
@@ -60,13 +62,7 @@
           spellcheck="false"
         ></textarea>
         <footer class="foot">
-          <button
-            id="importMac"
-            class="btn small"
-            title="Add the text replacements from System Settings › Keyboard"
-          >
-            Import from macOS
-          </button>
+          <button id="ghost" class="ghost" type="button"></button>
           <button id="remove" class="btn small">Delete</button>
         </footer>
       </div>

@@ -48,6 +48,19 @@ test('copies are remembered newest first and saved to clipboard.json', async () 
   expect(JSON.parse(saved)).toEqual({ items: ['uno', 'dos'] });
 });
 
+test('copying an entry again moves it to the top and pastes nothing', async () => {
+  await run((history, helper) =>
+    Effect.gen(function* () {
+      yield* helper.emit({ type: 'clipboard', text: 'a' });
+      yield* helper.emit({ type: 'clipboard', text: 'b' });
+      yield* settle;
+      yield* history.raise('a');
+      expect(yield* history.items).toEqual(['a', 'b']);
+      expect(helper.log.calls).not.toContain('clipboard.paste:a');
+    }),
+  );
+});
+
 test('pasting an entry moves it to the top; remove and clear forget', async () => {
   await run((history, helper) =>
     Effect.gen(function* () {

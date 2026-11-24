@@ -1,5 +1,5 @@
 // The copilot: a floating, non-activating panel at the top center of the built-in display.
-// Hidden from screen sharing unless the eye says otherwise; its top edge stays put as the content grows.
+// Hidden from screen sharing unless the ghost says otherwise; its top edge stays put as the content grows.
 import { BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import {
   Context,
@@ -21,6 +21,7 @@ import { Clipboard } from '../../../core/electron/Platform';
 import { preloadFile, rendererFile } from '../../../core/electron/paths';
 import { placeOnActive } from '../../../core/electron/ActiveScreen';
 import { Hotkeys } from '../../../core/electron/Hotkeys';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { type HotkeyID, label } from '../../../core/hotkeys';
 import { copilotGlass } from '../../../core/glass';
 import { setGlass } from '../../../core/electron/Glass';
@@ -71,6 +72,7 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
       const clipboard = yield* Clipboard;
       const bots = yield* BotsWindow;
       const hotkeys = yield* Hotkeys;
+      const invisibility = yield* Invisibility;
       const run = yield* makeRunner<never>();
       const current = yield* Ref.make<Option.Option<BrowserWindow>>(Option.none());
       const alive = Ref.get(current).pipe(Effect.map(Option.filter((w) => !w.isDestroyed())));
@@ -136,7 +138,6 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
           Ask: ({ question }) => app.setQuestion(question).pipe(Effect.andThen(app.ask())),
           Collapse: () => app.collapseToggle,
           ToggleFollow: () => app.toggleFollow,
-          ToggleCapture: () => app.toggleCaptureVisibility,
           ToggleListening: () => app.toggleListening,
           ToggleTranscript: () => app.toggleTranscript,
           Reset: () => app.reset,
@@ -180,17 +181,6 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
             ),
           );
         });
-      // Never late: whether screen sharing sees it.
-      const protect = (win: BrowserWindow) =>
-        app.changes.pipe(
-          Stream.map((m) => m.visibleInCapture),
-          Stream.changes,
-          Stream.runForEach((visible) =>
-            Effect.sync(() => {
-              if (!win.isDestroyed()) win.setContentProtection(!visible);
-            }),
-          ),
-        );
       // The keys shown on the panel are the ones in Settings.
       const showKeys = (win: BrowserWindow) =>
         hotkeys.changes.pipe(
@@ -246,7 +236,7 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
         });
         win.setAlwaysOnTop(true, 'status');
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-        win.setContentProtection(!m.visibleInCapture);
+        invisibility.follow(win);
         // Where the last one was.
         if (g.anchorTop !== null && g.anchorMidX !== null)
           win.setPosition(Math.round(g.anchorMidX - width / 2), g.anchorTop);
@@ -300,7 +290,7 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
         });
         yield* FiberHandle.run(
           feeding,
-          Effect.all([draw(win), protect(win), showKeys(win)], { concurrency: 'unbounded', discard: true }),
+          Effect.all([draw(win), showKeys(win)], { concurrency: 'unbounded', discard: true }),
         );
         // It has its size, and is there to be seen, before it shows.
         yield* Deferred.await(drawn).pipe(Effect.timeout('1 second'), Effect.ignore);

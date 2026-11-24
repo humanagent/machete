@@ -80,7 +80,6 @@ const Selected = Schema.Struct({ text: Schema.String, pid: Schema.Number });
 export type Selected = typeof Selected.Type;
 const Replaced = Schema.Struct({ pasted: Schema.Boolean });
 const Nothing = Schema.Struct({});
-const TextReplacements = Schema.Array(Schema.Struct({ abbreviation: Schema.String, content: Schema.String }));
 const SettingsBounds = Schema.Struct({
   X: Schema.Number,
   Y: Schema.Number,
@@ -121,11 +120,6 @@ export interface NativeHelperShape {
   readonly readSelection: Effect.Effect<Selected, HelperError>;
   /** Pastes over that selection. False: the app isn't in front anymore (or is a terminal), so it was only copied. */
   readonly replaceSelection: (text: string, pid: number) => Effect.Effect<boolean, HelperError>;
-  /** The Mac's own text replacements (System Settings › Keyboard). */
-  readonly macTextReplacements: Effect.Effect<
-    ReadonlyArray<{ readonly abbreviation: string; readonly content: string }>,
-    HelperError
-  >;
   /** What macOS allows right now (a fresh process each time: the long-lived helper caches these). */
   readonly permissionStatus: Effect.Effect<PermissionsSnapshot, HelperError>;
   /** The frontmost System Settings window, if one is open. */
@@ -362,7 +356,6 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
             request('selection.replace', { text, pid }, Replaced, Duration.seconds(10)).pipe(
               Effect.map((r) => r.pasted),
             ),
-          macTextReplacements: oneShot(['text-replacements'], TextReplacements),
           watchClipboard: request('clipboard.watch', {}, Nothing).pipe(Effect.asVoid),
           pasteClip: (text) =>
             request('clipboard.paste', { text }, Nothing, Duration.seconds(5)).pipe(Effect.asVoid),

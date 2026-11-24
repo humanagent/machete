@@ -12,6 +12,8 @@ export interface ClipboardHistoryShape {
   readonly changes: Stream.Stream<ReadonlyArray<string>>;
   /** Pastes `text` into the app you're in; it also moves to the top. */
   readonly paste: (text: string) => Effect.Effect<void, HelperError>;
+  /** `text` goes to the top. */
+  readonly raise: (text: string) => Effect.Effect<void>;
   readonly remove: (text: string) => Effect.Effect<void>;
   readonly clear: Effect.Effect<void>;
 }
@@ -63,6 +65,7 @@ export class ClipboardHistory extends Context.Service<ClipboardHistory, Clipboar
         items: SubscriptionRef.get(items),
         changes: SubscriptionRef.changes(items),
         paste: (text) => helper.pasteClip(text).pipe(Effect.andThen(change((xs) => remember(xs, text)))),
+        raise: (text) => change((xs) => remember(xs, text)),
         remove: (text) => change((xs) => forget(xs, text)),
         clear: change(() => []),
       } satisfies ClipboardHistoryShape;

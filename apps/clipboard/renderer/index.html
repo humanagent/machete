@@ -24,6 +24,12 @@
         user-select: text;
         cursor: text;
       }
+      .preview .bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: 26px;
+      }
       .preview .meta {
         color: var(--text-dim);
         font-size: 11.5px;
@@ -42,11 +48,16 @@
         />
         <ol id="list" class="list"></ol>
         <div id="empty" class="empty" hidden>Nothing copied yet</div>
-        <footer class="foot"><span>↩ paste · ⌘1–9 · ⌥⌫ delete</span><span>esc</span></footer>
+        <footer class="foot">
+          <span>↩ paste · ⌘1–9 · double-click copy · ⌥⌫ delete</span><span>esc</span>
+        </footer>
       </div>
       <div class="column preview">
         <pre id="full" class="mono"></pre>
-        <div id="meta" class="meta"></div>
+        <div class="bottom">
+          <div id="meta" class="meta"></div>
+          <button id="ghost" class="ghost" type="button"></button>
+        </div>
       </div>
     </div>
     <script src="main.js"></script>

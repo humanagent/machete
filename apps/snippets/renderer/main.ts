@@ -1,6 +1,7 @@
-// The snippets panel: type to filter, ↑↓ to choose, ↩ or click to paste, ⌘N to add; the right side edits the
+// The snippets panel: type to filter, ↑↓ to choose, ↩ to paste, double-click to copy, ⌘N to add; the right side edits the
 // selected snippet (saved as you type).
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
 import type { SnippetsBridge, SnippetsState } from '../ipc';
 import { type Snippet, search } from '../snippets';
@@ -21,7 +22,6 @@ const el = {
   allow: byId('allow'),
   abbr: byId<HTMLInputElement>('abbr'),
   content: byId<HTMLTextAreaElement>('content'),
-  importMac: byId('importMac'),
   remove: byId('remove'),
 };
 const send = (command: Parameters<SnippetsBridge['send']>[0]) => window.snippets.send(command);
@@ -55,7 +55,7 @@ const render = () => {
         li.append(a);
       }
       li.addEventListener('click', () => select(i));
-      li.addEventListener('dblclick', () => paste(i));
+      li.addEventListener('dblclick', () => copy(i));
       return li;
     }),
   );
@@ -84,6 +84,11 @@ const select = (i: number) => {
 const paste = (i: number) => {
   const s = shown[i];
   if (s !== undefined) send({ _tag: 'Paste', id: s.id });
+};
+
+const copy = (i: number) => {
+  const s = shown[i];
+  if (s !== undefined) send({ _tag: 'Copy', id: s.id });
 };
 
 let saveTimer = 0;
@@ -129,7 +134,7 @@ el.abbr.addEventListener('input', save);
 el.content.addEventListener('input', save);
 el.add.addEventListener('click', () => send({ _tag: 'Add' }));
 el.allow.addEventListener('click', () => send({ _tag: 'Permissions' }));
-el.importMac.addEventListener('click', () => send({ _tag: 'ImportMac' }));
+ghost();
 el.remove.addEventListener('click', () => {
   if (editing !== null) send({ _tag: 'Remove', id: editing });
 });

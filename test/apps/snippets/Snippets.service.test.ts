@@ -44,16 +44,13 @@ test('every change reaches the helper and snippets.json (private)', async () => 
   expect(mode).toBe(0o600);
 });
 
-test('pasting types the text; importing from macOS skips abbreviations already there', async () => {
+test('pasting types the text', async () => {
   await run((snippets, helper) =>
     Effect.gen(function* () {
       const id = yield* snippets.add;
       yield* snippets.update(id, 'gg', 'hola');
       yield* snippets.paste(id);
       expect(helper.log.typed).toEqual(['hola']);
-      expect(yield* snippets.importMac).toBe(1);
-      expect(yield* snippets.importMac).toBe(0);
-      expect((yield* snippets.items).map((s) => s.abbreviation)).toEqual(['gg', 'omw']);
     }),
   );
 });

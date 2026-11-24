@@ -348,17 +348,6 @@ describe('a long recording', () => {
 });
 
 describe('panel', () => {
-  test('starts hidden from screen sharing; the eye toggles it for the session', async () => {
-    const s = await harness(({ app }) =>
-      Effect.gen(function* () {
-        const before = copilotState(yield* app.model).visibleInCapture;
-        yield* app.toggleCaptureVisibility;
-        return { before, after: copilotState(yield* app.model).visibleInCapture };
-      }),
-    );
-    expect(s).toEqual({ before: false, after: true });
-  });
-
   test('card height is clamped and persisted on request', async () => {
     const s = await harness(({ app }) =>
       Effect.gen(function* () {

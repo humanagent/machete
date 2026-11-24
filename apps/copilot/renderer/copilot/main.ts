@@ -5,6 +5,7 @@ import type { Exchange, CopilotState, TranscriptLine } from '../../domain';
 import type { CopilotBridge, CopilotCommand, CopilotKeys } from '../../ipc';
 import { clock, recordedSeconds, transcriptText } from '../../logic';
 import { escapeHTML, renderBody } from '../../markdown';
+import { ghost } from '../../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../../core/renderer/runtime';
 
 declare global {
@@ -34,8 +35,6 @@ const el = {
   follow: byId<HTMLButtonElement>('follow'),
   followIcon: byId('followIcon'),
   bots: byId<HTMLButtonElement>('bots'),
-  capture: byId<HTMLButtonElement>('capture'),
-  captureIcon: byId('captureIcon'),
   record: byId<HTMLButtonElement>('record'),
   stop: byId<HTMLButtonElement>('stop'),
   bodywrap: byId('bodywrap'),
@@ -157,10 +156,6 @@ const renderBar = (s: CopilotState) => {
   el.followIcon.className = s.followMode ? 'i-binoculars-fill' : 'i-binoculars';
   el.follow.title = s.followMode ? 'Follow is on (click to stop)' : 'Follow: flag my mistakes automatically';
   el.bots.title = `Bot: ${s.currentProfileName}`;
-  el.captureIcon.className = s.visibleInCapture ? 'i-eye' : 'i-eye-slash';
-  el.capture.title = s.visibleInCapture
-    ? 'Visible in screen sharing (click to hide)'
-    : 'Hidden from screen sharing (click to show)';
   el.record.hidden = s.isListening;
   el.stop.hidden = !s.isListening;
 };
@@ -332,7 +327,7 @@ const bindInput = Effect.sync(() => {
   el.go.addEventListener('click', askFromInput);
   el.back.addEventListener('click', () => send({ _tag: 'Collapse' }));
   el.follow.addEventListener('click', () => send({ _tag: 'ToggleFollow' }));
-  el.capture.addEventListener('click', () => send({ _tag: 'ToggleCapture' }));
+  ghost();
   el.record.addEventListener('click', () => send({ _tag: 'ToggleListening' }));
   el.stop.addEventListener('click', () => send({ _tag: 'ToggleListening' }));
   el.signin.addEventListener('click', () => send({ _tag: 'Login' }));

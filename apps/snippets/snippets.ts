@@ -27,16 +27,3 @@ export const expansions = (items: ReadonlyArray<Snippet>) =>
   items
     .filter((s) => s.abbreviation.trim() !== '' && s.content !== '')
     .map((s) => ({ abbreviation: s.abbreviation.trim(), content: s.content }));
-
-/** Adds imported snippets, skipping abbreviations already there. Returns the list and how many were added. */
-export const merge = (
-  items: ReadonlyArray<Snippet>,
-  incoming: ReadonlyArray<Omit<Snippet, 'id'>>,
-  newId: () => string,
-): readonly [ReadonlyArray<Snippet>, number] => {
-  const taken = new Set(items.map((s) => s.abbreviation));
-  const added = incoming
-    .filter((s) => s.abbreviation !== '' && !taken.has(s.abbreviation) && (taken.add(s.abbreviation), true))
-    .map((s) => ({ id: newId(), abbreviation: s.abbreviation, content: s.content }));
-  return [[...items, ...added], added.length] as const;
-};

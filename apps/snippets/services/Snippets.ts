@@ -6,7 +6,7 @@ import type { HelperError } from '../../../core/errors';
 import { AppPaths } from '../../../core/services/AppPaths';
 import { readJson, writeJson } from '../../../core/services/JsonFile';
 import { NativeHelper } from '../../../core/services/NativeHelper';
-import { expansions, merge, type Snippet, SnippetsFile } from '../snippets';
+import { expansions, type Snippet, SnippetsFile } from '../snippets';
 
 export interface SnippetsShape {
   readonly items: Effect.Effect<ReadonlyArray<Snippet>>;
@@ -19,8 +19,6 @@ export interface SnippetsShape {
   readonly remove: (id: string) => Effect.Effect<void>;
   /** Types the snippet's text into the app you're in. */
   readonly paste: (id: string) => Effect.Effect<void, HelperError>;
-  /** Adds the Mac's own text replacements; returns how many were new. */
-  readonly importMac: Effect.Effect<number, HelperError>;
 }
 
 export class Snippets extends Context.Service<Snippets, SnippetsShape>()('machete/Snippets') {
@@ -79,16 +77,6 @@ export class Snippets extends Context.Service<Snippets, SnippetsShape>()('machet
             Effect.map((xs) => xs.find((s) => s.id === id)),
             Effect.flatMap((s) => (s ? helper.paste(s.content) : Effect.void)),
           ),
-        importMac: Effect.gen(function* () {
-          const incoming = yield* helper.macTextReplacements;
-          let added = 0;
-          yield* change((xs) => {
-            const [next, n] = merge(xs, incoming, randomUUID);
-            added = n;
-            return next;
-          });
-          return added;
-        }),
       } satisfies SnippetsShape;
     }),
   );

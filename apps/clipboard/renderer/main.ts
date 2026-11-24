@@ -1,5 +1,7 @@
-// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ or double-click to paste, ⌥⌫ to delete, Esc to close.
+// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ to paste, double-click to copy,
+// ⌥⌫ to delete, Esc to close.
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
 import { preview, search } from '../history';
 import type { ClipboardBridge, ClipboardState } from '../ipc';
@@ -21,6 +23,7 @@ let items: ReadonlyArray<string> = [];
 let shown: ReadonlyArray<string> = [];
 let selected = 0;
 let opened = -1;
+const ghostButton = ghost();
 
 const render = () => {
   shown = search(items, el.search.value);
@@ -43,7 +46,7 @@ const render = () => {
       }
       li.addEventListener('mousemove', () => select(i));
       li.addEventListener('click', () => select(i));
-      li.addEventListener('dblclick', () => paste(i));
+      li.addEventListener('dblclick', () => copy(i));
       return li;
     }),
   );
@@ -74,6 +77,11 @@ const paste = (i: number) => {
   if (text !== undefined) window.clipboardHistory.send({ _tag: 'Paste', text });
 };
 
+const copy = (i: number) => {
+  const text = shown[i];
+  if (text !== undefined) window.clipboardHistory.send({ _tag: 'Copy', text });
+};
+
 const onState = (state: ClipboardState) =>
   Effect.sync(() => {
     items = state.items;
@@ -98,7 +106,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') window.clipboardHistory.send({ _tag: 'Close' });
   else if (e.key === 'ArrowDown') select(selected + 1);
   else if (e.key === 'ArrowUp') select(selected - 1);
-  else if (e.key === 'Enter') paste(selected);
+  else if (e.key === 'Enter' && document.activeElement !== ghostButton) paste(selected);
   else if (e.metaKey && /^[1-9]$/.test(e.key)) paste(Number(e.key) - 1);
   else if (e.altKey && e.key === 'Backspace') {
     const text = shown[selected];

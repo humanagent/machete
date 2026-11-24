@@ -65,7 +65,6 @@ export const CopilotState = Schema.Struct({
   loggedIn: Schema.NullOr(Schema.Boolean),
   signingIn: Schema.Boolean,
   directSignedIn: Schema.Boolean,
-  visibleInCapture: Schema.Boolean,
   followMode: Schema.Boolean,
   followBusy: Schema.Boolean,
   unseenFollow: Schema.Number,

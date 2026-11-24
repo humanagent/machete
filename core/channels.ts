@@ -19,6 +19,8 @@ export const Channels = {
   previewsCommand: 'previews:command',
   editorState: 'editor:state',
   editorCommand: 'editor:command',
+  ghostState: 'ghost:state',
+  ghostToggle: 'ghost:toggle',
   settingsState: 'settings:state',
   settingsCommand: 'settings:command',
   permissionsState: 'permissions:state',

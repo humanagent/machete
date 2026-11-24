@@ -103,28 +103,11 @@
         color: var(--calc-heading);
       }
       /* Shown in screen sharing or not. */
-      #share {
+      .ghost {
         -webkit-app-region: no-drag;
         position: absolute;
         left: 12px;
         bottom: 6px;
-        width: 30px;
-        height: 26px;
-        display: grid;
-        place-items: center;
-        border-radius: 13px;
-        color: var(--calc-comment);
-      }
-      #share:hover {
-        color: var(--text);
-        background: var(--fill);
-      }
-      #share.on {
-        color: var(--calc-result);
-      }
-      #share svg {
-        width: 17px;
-        height: 17px;
       }
     </style>
   </head>
@@ -143,7 +126,7 @@
           ></textarea>
         </div>
         <div id="results" class="results"></div>
-        <button id="share" type="button"></button>
+        <button id="ghost" class="ghost" type="button"></button>
       </div>
     </div>
     <script src="main.js"></script>

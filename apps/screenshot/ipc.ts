@@ -12,6 +12,8 @@ export const PreviewsCommand = Schema.TaggedUnion({
   Edit: Id,
   Copy: Id,
   Save: Id,
+  /** Another one just like it, to drag it more than once. */
+  Duplicate: Id,
   /** Drags the file out, into another app. */
   Drag: Id,
   Close: Id,

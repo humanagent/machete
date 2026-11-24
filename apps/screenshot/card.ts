@@ -1,9 +1,9 @@
-// The buttons of a floating preview, one per corner. The picture itself only drags.
+// The buttons of a floating preview: one per corner, and Duplicate beside Edit. The picture itself only drags.
 import type { PreviewsCommand } from './ipc';
 
 export interface CardButton {
   /** Its class: where it goes. */
-  readonly kind: 'close' | 'edit' | 'copy' | 'save';
+  readonly kind: 'close' | 'duplicate' | 'edit' | 'copy' | 'save';
   readonly command: Exclude<PreviewsCommand['_tag'], 'Drag'>;
   readonly label: string;
   readonly text?: string;
@@ -13,6 +13,12 @@ export interface CardButton {
 
 export const CARD_BUTTONS: ReadonlyArray<CardButton> = [
   { kind: 'close', command: 'Close', label: 'Close', text: '✕' },
+  {
+    kind: 'duplicate',
+    command: 'Duplicate',
+    label: 'Duplicate',
+    icon: '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/>',
+  },
   {
     kind: 'edit',
     command: 'Edit',

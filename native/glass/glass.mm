@@ -1,5 +1,5 @@
-// machete-glass: Liquid Glass behind a window's page. Runs inside Machete's main process, because only it can reach its
-// own windows. NSGlassEffectView is looked up when it runs, so this builds and loads on any macOS from 14 on.
+// machete-glass: Liquid Glass behind a window's page, and dragging a file out of it. Runs inside Machete's main
+// process, because only it can reach its own windows. NSGlassEffectView is looked up when it runs, so this builds and loads on any macOS from 14 on.
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 #include <cstddef>
@@ -20,6 +20,8 @@ napi_status napi_get_array_length(napi_env, napi_value, uint32_t *);
 napi_status napi_get_element(napi_env, napi_value, uint32_t, napi_value *);
 napi_status napi_get_value_double(napi_env, napi_value, double *);
 napi_status napi_get_boolean(napi_env, bool, napi_value *);
+napi_status napi_create_int32(napi_env, int32_t, napi_value *);
+napi_status napi_get_value_string_utf8(napi_env, napi_value, char *, size_t, size_t *);
 napi_status napi_create_function(napi_env, const char *, size_t, napi_callback, void *, napi_value *);
 napi_status napi_set_named_property(napi_env, napi_value, const char *, napi_value);
 }
@@ -130,10 +132,103 @@ static napi_value setGlass(napi_env env, napi_callback_info info) {
   return result;
 }
 
+/// Where a drag is: what it ended as tells whether anything took the file.
+typedef NS_ENUM(int32_t, MacheteDrag) { MacheteDragNone, MacheteDragging, MacheteDropped, MacheteCancelled };
+static MacheteDrag dragState = MacheteDragNone;
+
+@interface MacheteDragSource : NSObject <NSDraggingSource>
+@end
+@implementation MacheteDragSource
+// A copy: never moved away, nor to the Trash.
+- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+  return NSDragOperationCopy | NSDragOperationGeneric;
+}
+- (void)draggingSession:(NSDraggingSession *)session endedAtPoint:(NSPoint)point operation:(NSDragOperation)operation {
+  dragState = operation == NSDragOperationNone ? MacheteCancelled : MacheteDropped;
+}
+@end
+
+// Kept while it drags: a session doesn't hold its source.
+static MacheteDragSource *dragSource = nil;
+
+static BOOL beginDrag(NSView *view, NSString *file, CGFloat width) {
+  NSImage *image = [[NSImage alloc] initWithContentsOfFile:file];
+  if (!image || image.size.width <= 0 || dragState == MacheteDragging) return NO;
+  // Let go already: a drag begun now would stick to the pointer until the next click.
+  if (!(NSEvent.pressedMouseButtons & 1)) {
+    dragState = MacheteCancelled;
+    return YES;
+  }
+  const CGFloat height = MIN(width * image.size.height / image.size.width, width * 2);
+  const NSPoint at = view.window.mouseLocationOutsideOfEventStream;
+  const NSPoint in = [view convertPoint:at fromView:nil];
+  NSDraggingItem *item = [[NSDraggingItem alloc] initWithPasteboardWriter:[NSURL fileURLWithPath:file]];
+  [item setDraggingFrame:NSMakeRect(in.x - width / 2, in.y - height / 2, width, height) contents:image];
+  NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDragged
+                                      location:at
+                                 modifierFlags:0
+                                     timestamp:NSProcessInfo.processInfo.systemUptime
+                                  windowNumber:view.window.windowNumber
+                                       context:nil
+                                   eventNumber:0
+                                    clickCount:1
+                                      pressure:1];
+  dragSource = [MacheteDragSource new];
+  dragState = MacheteDragging;
+  if ([view beginDraggingSessionWithItems:@[ item ] event:event source:dragSource]) return YES;
+  dragState = MacheteDragNone;
+  return NO;
+}
+
+// drag(getNativeWindowHandle(), file, the width of what follows the pointer) → whether it started.
+static napi_value drag(napi_env env, napi_callback_info info) {
+  napi_value result;
+  napi_get_boolean(env, false, &result);
+  size_t argc = 3;
+  napi_value argv[3];
+  if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != 0 || argc < 3) return result;
+  bool isBuffer = false;
+  void *data = nullptr;
+  size_t length = 0;
+  if (napi_is_buffer(env, argv[0], &isBuffer) != 0 || !isBuffer) return result;
+  if (napi_get_buffer_info(env, argv[0], &data, &length) != 0 || length != sizeof(void *)) return result;
+  char file[4096];
+  size_t size = 0;
+  double width = 0;
+  if (napi_get_value_string_utf8(env, argv[1], file, sizeof file, &size) != 0 || size >= sizeof file - 1) return result;
+  if (napi_get_value_double(env, argv[2], &width) != 0 || !(width > 0) || !NSThread.isMainThread) return result;
+  @autoreleasepool {
+    const void *wanted = *static_cast<void **>(data);
+    @try {
+      for (NSWindow *window in NSApp.windows) {
+        if ((__bridge const void *)window.contentView != wanted) continue;
+        napi_get_boolean(env, beginDrag(window.contentView, @(file), width), &result);
+        break;
+      }
+    } @catch (NSException *problem) {
+      dragState = MacheteDragNone;
+      NSLog(@"machete-glass: %@", problem);
+      napi_get_boolean(env, false, &result);
+    }
+  }
+  return result;
+}
+
+// dragState() → 0 none yet, 1 dragging, 2 something took the file, 3 nothing did.
+static napi_value getDragState(napi_env env, napi_callback_info info) {
+  napi_value result;
+  napi_create_int32(env, dragState, &result);
+  return result;
+}
+
 extern "C" __attribute__((visibility("default"))) napi_value napi_register_module_v1(napi_env env, napi_value exports) {
   napi_value fn;
   if (napi_create_function(env, "setGlass", SIZE_MAX, setGlass, nullptr, &fn) == 0)
     napi_set_named_property(env, exports, "setGlass", fn);
+  if (napi_create_function(env, "drag", SIZE_MAX, drag, nullptr, &fn) == 0)
+    napi_set_named_property(env, exports, "drag", fn);
+  if (napi_create_function(env, "dragState", SIZE_MAX, getDragState, nullptr, &fn) == 0)
+    napi_set_named_property(env, exports, "dragState", fn);
   return exports;
 }
 extern "C" __attribute__((visibility("default"))) int32_t node_api_module_get_api_version_v1() { return 8; }

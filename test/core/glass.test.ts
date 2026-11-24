@@ -45,7 +45,7 @@ describe('where it goes', () => {
 });
 
 describe('an addon that fails is only no glass', () => {
-  const good: GlassAddon = { setGlass: () => true };
+  const good: GlassAddon = { setGlass: () => true, drag: () => true, dragState: () => 0 };
   test('loaded once', () => {
     let times = 0;
     const get = loadOnce(() => (times++, good));
@@ -77,6 +77,11 @@ test.skipIf(process.platform !== 'darwin' || !existsSync(built))(
     expect(set(Buffer.alloc(3), [], [0, 0, 0, 1])).toBe(false);
     expect(set(Buffer.alloc(8), [1, 2], [0, 0, 0, 1])).toBe(false);
     expect((set as (...args: Array<unknown>) => boolean)()).toBe(false);
+    const drag = m.exports.drag! as (...args: Array<unknown>) => boolean;
+    expect(drag(Buffer.alloc(8), '/nowhere.png', 120)).toBe(false);
+    expect(drag(Buffer.alloc(8), '/nowhere.png', 0)).toBe(false);
+    expect([drag(), drag('x', 1, 'y')]).toEqual([false, false]);
+    expect(m.exports.dragState!()).toBe(0);
     expect((set as (...args: Array<unknown>) => boolean)('x', 'y', 'z')).toBe(false);
   },
 );

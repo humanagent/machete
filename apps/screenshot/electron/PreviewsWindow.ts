@@ -7,7 +7,7 @@ import { activeScreen, placeOnActive } from '../../../core/electron/ActiveScreen
 import { preloadFile, rendererFile } from '../../../core/electron/paths';
 import { Clipboard } from '../../../core/electron/Platform';
 import { stackGlass } from '../../../core/glass';
-import { setGlass } from '../../../core/electron/Glass';
+import { dragOut, setGlass } from '../../../core/electron/Glass';
 import { makeRunner } from '../../../core/electron/Runner';
 import { PreviewsCommand, type PreviewsState } from '../ipc';
 import { Screenshots, type Shot } from '../services/Screenshots';
@@ -18,6 +18,8 @@ const CARD = { width: 220, height: 150 };
 const GAP = 10;
 const MARGIN = 16;
 const MAX = 5;
+/** How wide the picture under the pointer is. */
+const DRAGGED = 120;
 
 interface Floating extends Shot {
   readonly thumb: string;
@@ -127,11 +129,9 @@ export class ScreenshotPreviews extends Context.Service<
         yield* FiberHandle.run(follow, following, { onlyIfMissing: true });
       });
 
-      const drop = (shot: Shot) =>
-        Ref.update(shots, (list) => list.filter((s) => s.id !== shot.id)).pipe(
-          Effect.andThen(show),
-          Effect.andThen(screenshots.discard(shot)),
-        );
+      const hide = (shot: Shot) =>
+        Ref.update(shots, (list) => list.filter((s) => s.id !== shot.id)).pipe(Effect.andThen(show));
+      const drop = (shot: Shot) => hide(shot).pipe(Effect.andThen(screenshots.discard(shot)));
 
       const add = (shot: Shot) =>
         Effect.gen(function* () {
@@ -169,6 +169,17 @@ export class ScreenshotPreviews extends Context.Service<
       const save = (png: Uint8Array) =>
         screenshots.save(png, app.getPath('desktop')).pipe(Effect.map(Option.isSome));
 
+      // It goes once something takes it. Its file stays until Machete quits: whoever took it may read it later.
+      const drag = (shot: Floating, page: Electron.WebContents) =>
+        Effect.gen(function* () {
+          const w = BrowserWindow.fromWebContents(page);
+          const taken = w ? yield* dragOut(w, shot.file, DRAGGED) : Option.none<boolean>();
+          if (Option.isSome(taken)) return yield* taken.value ? hide(shot) : Effect.void;
+          // Electron doesn't say how it ended: it stays.
+          const icon = nativeImage.createFromDataURL(shot.thumb).resize({ width: DRAGGED });
+          page.startDrag({ file: shot.file, icon });
+        });
+
       const decode = Schema.decodeUnknownOption(PreviewsCommand);
       const onCommand = (event: Electron.IpcMainEvent, raw: unknown) =>
         Option.map(decode(raw), (command) =>
@@ -189,12 +200,11 @@ export class ScreenshotPreviews extends Context.Service<
                   ),
                 Copy: () => withPng(shot, clipboard.writeImage),
                 Save: () => withPng(shot, save),
-                // It stays: whether it was dropped somewhere isn't known.
-                Drag: () =>
-                  Effect.sync(() => {
-                    const icon = nativeImage.createFromDataURL(shot.thumb).resize({ width: 120 });
-                    event.sender.startDrag({ file: shot.file, icon });
-                  }),
+                Duplicate: () =>
+                  screenshots
+                    .duplicate(shot)
+                    .pipe(Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: add }))),
+                Drag: () => drag(shot, event.sender),
                 Close: () => drop(shot),
               });
             }),

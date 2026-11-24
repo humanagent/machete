@@ -8,14 +8,15 @@ import { PreviewsCommand } from '../../../apps/screenshot/ipc';
 const read = (f: string) =>
   readFileSync(join(import.meta.dir, '../../../apps/screenshot/renderer/previews', f), 'utf8');
 
-test('close, edit, copy and save, each in its corner and with a command that exists', () => {
-  expect(CARD_BUTTONS.map((b) => b.kind)).toEqual(['close', 'edit', 'copy', 'save']);
+test('close, duplicate, edit, copy and save, each in its place and with a command that exists', () => {
+  expect(CARD_BUTTONS.map((b) => b.kind)).toEqual(['close', 'duplicate', 'edit', 'copy', 'save']);
   const html = read('index.html');
   for (const b of CARD_BUTTONS) {
     expect(Schema.is(PreviewsCommand)({ _tag: b.command, id: 'x' })).toBe(true);
     expect((b.text === undefined) !== (b.icon === undefined)).toBe(true);
     expect(html).toContain(`.${b.kind} {`);
   }
+  expect(html).toMatch(/\.duplicate \{\s*top: 7px;\s*right: 39px;/);
   expect(html).toMatch(/\.edit \{\s*top: 7px;\s*right: 7px;/);
 });
 

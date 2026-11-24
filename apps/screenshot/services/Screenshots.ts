@@ -43,6 +43,8 @@ export interface ScreenshotsShape {
   /** None: cancelled, one is already being taken, or macOS didn't allow it (the guide opens then). */
   readonly take: (target: Target) => Effect.Effect<Option.Option<Shot>>;
   readonly read: (shot: Shot) => Effect.Effect<Option.Option<Uint8Array>>;
+  /** Another file with the same picture. */
+  readonly duplicate: (shot: Shot) => Effect.Effect<Option.Option<Shot>>;
   readonly discard: (shot: Shot) => Effect.Effect<void>;
   /** Writes `png` in `folder` without replacing anything; returns the file, or None if it couldn't. */
   readonly save: (png: Uint8Array, folder: string) => Effect.Effect<Option.Option<string>>;
@@ -102,6 +104,19 @@ export class Screenshots extends Context.Service<Screenshots, ScreenshotsShape>(
               ),
             ),
           read: (shot) => fs.readFile(shot.file).pipe(Effect.option),
+          duplicate: (shot) =>
+            Effect.gen(function* () {
+              const id = String(yield* Ref.updateAndGet(count, (n) => n + 1));
+              const folder = path.join(dir, id);
+              yield* fs.makeDirectory(folder, { recursive: true });
+              const file = path.join(folder, path.basename(shot.file));
+              yield* fs.copyFile(shot.file, file);
+              return Option.some<Shot>({ id, file });
+            }).pipe(
+              Effect.catch((e) =>
+                Effect.logWarning(`screenshot: ${String(e)}`).pipe(Effect.as(Option.none<Shot>())),
+              ),
+            ),
           discard: (shot) => fs.remove(path.dirname(shot.file), { recursive: true }).pipe(Effect.ignore),
           save: (png, folder) =>
             Effect.gen(function* () {

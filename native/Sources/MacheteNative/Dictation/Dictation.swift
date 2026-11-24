@@ -32,6 +32,7 @@ enum Dictation {
     /// Types `text` into the focused app: puts it on the clipboard, sends ⌘V, then restores the clipboard.
     @MainActor static func paste(_ text: String) async -> Bool {
         guard canType(prompt: true) else { return false }
+        if Typing.needed(for: text) { await Typing.type(text); return true }
         let pb = NSPasteboard.general
         let saved = Clipboard.save()
         pb.clearContents()

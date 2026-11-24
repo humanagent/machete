@@ -65,11 +65,12 @@ enum Clipboard {
     }
 
     /// Puts `text` on the clipboard and sends ⌘V to the app in front. It stays on the clipboard, like a copy.
-    @MainActor static func paste(_ text: String) -> Bool {
+    @MainActor static func paste(_ text: String) async -> Bool {
         guard Dictation.canType(prompt: true) else { return false }
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+        if Typing.needed(for: text) { await Typing.type(text); return true }
         let src = CGEventSource(stateID: .combinedSessionState)
         for down in [true, false] {
             let e = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: down) // V

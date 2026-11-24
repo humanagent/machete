@@ -1,4 +1,4 @@
-// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ or click to paste, ⌥⌫ to delete, Esc to close.
+// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ or double-click to paste, ⌥⌫ to delete, Esc to close.
 import { Effect, Stream } from 'effect';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
 import { preview, search } from '../history';
@@ -42,7 +42,8 @@ const render = () => {
         li.append(k);
       }
       li.addEventListener('mousemove', () => select(i));
-      li.addEventListener('click', () => paste(i));
+      li.addEventListener('click', () => select(i));
+      li.addEventListener('dblclick', () => paste(i));
       return li;
     }),
   );
@@ -84,6 +85,9 @@ const onState = (state: ClipboardState) =>
     render();
     el.search.focus();
   });
+
+// Clicking an entry leaves you typing in the search.
+el.list.addEventListener('mousedown', (e) => e.preventDefault());
 
 el.search.addEventListener('input', () => {
   selected = 0;

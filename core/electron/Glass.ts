@@ -1,16 +1,18 @@
-// Liquid Glass behind Machete's windows: the only place that asks for it. Without it (macOS 14 and 15, or if the addon
-// doesn't load) a window stays as it was made, with its vibrancy.
+// What's native inside our own windows: Liquid Glass behind them, and dragging a file out of one. The only place that
+// asks for it. Without glass (macOS 14 and 15, or if the addon doesn't load) a window stays as it was made, with its
+// vibrancy.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrowserWindow } from 'electron';
+import { Effect, Option } from 'effect';
 import { GLASS_TINT, glassCss } from '../design/tokens';
-import { type GlassAddon, type GlassSpec, hasGlass, loadOnce, shapes } from '../glass';
+import { DRAG, type GlassAddon, type GlassSpec, hasGlass, loadOnce, shapes } from '../glass';
 import { appRoot } from './paths';
 
 const NAME = 'machete-glass.node';
 
 const addon = loadOnce(() => {
-  if (!hasGlass(process.platform, process.getSystemVersion())) return undefined;
+  if (process.platform !== 'darwin') return undefined;
   // In the packaged app it's next to the helper, signed with it.
   const file = [
     join(process.resourcesPath, '..', 'MacOS', NAME),
@@ -26,6 +28,7 @@ const styled = new WeakSet<BrowserWindow>();
 
 /** Puts glass behind `w`'s page, or moves the one it has. Call it once its page has loaded. */
 export const setGlass = (w: BrowserWindow, spec: GlassSpec): boolean => {
+  if (!hasGlass(process.platform, process.getSystemVersion())) return false;
   const native = addon();
   if (!native || w.isDestroyed()) return false;
   try {
@@ -46,3 +49,17 @@ export const setGlass = (w: BrowserWindow, spec: GlassSpec): boolean => {
   w.webContents.on('did-finish-load', style);
   return true;
 };
+
+/** Drags `file` out of `w` until it's let go: true if something took it. None if it couldn't be dragged this way. */
+export const dragOut = (
+  w: BrowserWindow,
+  file: string,
+  width: number,
+): Effect.Effect<Option.Option<boolean>> =>
+  Effect.gen(function* () {
+    const native = addon();
+    if (!native || w.isDestroyed() || !native.drag(w.getNativeWindowHandle(), file, width))
+      return Option.none();
+    while (native.dragState() === DRAG.dragging) yield* Effect.sleep('50 millis');
+    return Option.some(native.dragState() === DRAG.dropped);
+  });

@@ -76,6 +76,23 @@ test('a screenshot can be read, and is gone once discarded', async () => {
   expect(Option.isNone(value[1])).toBe(true);
 });
 
+test('a duplicate is its own file, and outlives the first', async () => {
+  const { value } = await run(WRITES, (s) =>
+    Effect.gen(function* () {
+      const shot = Option.getOrThrow(yield* s.take({ _tag: 'Area' }));
+      const other = Option.getOrThrow(yield* s.duplicate(shot));
+      yield* s.discard(shot);
+      const kept = yield* s.read(other);
+      return [
+        other.id !== shot.id && other.file !== shot.file,
+        Option.map(kept, (b) => new TextDecoder().decode(b)),
+        yield* s.duplicate(shot),
+      ] as const;
+    }),
+  );
+  expect(value).toEqual([true, Option.some('PNG'), Option.none()]);
+});
+
 test('Esc leaves nothing and explains nothing', async () => {
   const { value, guided } = await run('exit 1', (s) => s.take({ _tag: 'Area' }));
   expect(Option.isNone(value)).toBe(true);

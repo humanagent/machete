@@ -56,7 +56,13 @@ export interface GlassAddon {
     shapes: ReadonlyArray<number>,
     tint: readonly [number, number, number, number],
   ) => boolean;
+  /** Drags `file` out of a window, with a picture `width` wide under the pointer. False if it didn't start. */
+  readonly drag: (handle: Buffer, file: string, width: number) => boolean;
+  readonly dragState: () => number;
 }
+
+/** What `dragState` says. */
+export const DRAG = { dragging: 1, dropped: 2 } as const;
 
 /** The addon, the first time it's asked for; undefined if this Mac has no glass or it doesn't load, and then for good. */
 export const loadOnce = (load: () => GlassAddon | undefined): (() => GlassAddon | undefined) => {

@@ -4,6 +4,8 @@ A suite of small Mac tools in one menu bar app, built with Electron; macOS today
 
 **[Download for Mac](https://machetetools.com/download/Machete.dmg)** (macOS 14+, Apple Silicon), or try every program in the browser, without an account, at [machetetools.com](https://machetetools.com/).
 
+![Machete's panels on a desktop; when the screen is shared, only the ones shown stay](https://machetetools.com/img/machete.gif)
+
 - **Copilot**: a minimal, translucent panel that sees your screen, listens to your conversation, and answers using **your ChatGPT plan** via [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart).
 - **Dictation**: speak, and the words are typed into the app you're in.
 - **Windows**: snap the focused window left, right or full screen.
@@ -27,7 +29,7 @@ A suite of small Mac tools in one menu bar app, built with Electron; macOS today
 - **Rewrite**: select text in any app and press ⇧⌘G: ChatGPT fixes spelling and grammar in place. ⌥⇧⌘G opens a panel with more (improve, shorter, formal, friendlier, translate) or any instruction you type. ⌘Z brings the original back. The selected text is sent to ChatGPT only when you press it; needs Accessibility and being signed in. In terminals the result is copied instead of pasted.
 - **Screenshots**: ⇧⌘3 takes the screen with the pointer, ⇧⌘4 an area (Space picks a window, Esc cancels). Each one floats at the bottom left until you copy it, save it to the Desktop, drag it into an app (Duplicate first, to drag it more than once) or close it. The pencil opens the editor, which adds a frame: your wallpaper or a color behind it, rounded corners and a shadow. Needs Screen Recording.
 - **Calculator**: ⇧⌘D opens a sheet where every line shows its result: arithmetic, percentages (`15% of 200`, `200 + 10%`), units (`5 kg in lb`, `100 °F in °C`), currencies with daily rates (`100 usd in ars`), variables (`rent = 1200`), `prev`, `sum`, `# headings`, `Label: 3 * 4`. Click a result to copy it.
-- **Ghosts**: every panel stays out of screenshots and screen shares. The ghost in any of them shows them all, until you click it again or quit. Only the screenshots' floating previews always stay hidden.
+- **Ghosts**: every panel stays out of screenshots and screen shares. The ghost in each shows that one, until you click it again or quit. Only the screenshots' floating previews always stay hidden.
 - **Private Copilot**: stays out of sight until you call it. No Dock icon, resizable by dragging its edges.
 
 ## Settings

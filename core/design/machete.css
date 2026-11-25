@@ -213,7 +213,7 @@ textarea.field {
   background: var(--fill-strong);
 }
 
-/* Invisible in screen sharing, when lit. */
+/* Hidden in screen sharing; struck out, shown. */
 .ghost {
   flex: none;
   width: 30px;
@@ -227,8 +227,8 @@ textarea.field {
   color: var(--text);
   background: var(--fill);
 }
-.ghost.on {
-  color: var(--on);
+.ghost[aria-pressed='true'] {
+  color: var(--text);
 }
 .ghost svg {
   width: 18px;

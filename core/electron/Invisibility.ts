@@ -1,4 +1,4 @@
-// Whether screen sharing, screenshots and recordings see Machete: the ghost in its panels changes it for all of them.
+// Whether screen sharing, screenshots and recordings see each of Machete's panels: the ghost in it changes it.
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer } from 'effect';
 import { Channels } from '../channels';

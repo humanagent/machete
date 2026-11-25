@@ -1,5 +1,6 @@
-// Invisibility, the part without Electron: one state for all of Machete, and the windows that follow it. It always
-// starts invisible. What has no ghost (the screenshots' previews) never stops being it.
+// Invisibility, the part without Electron: which panels screen sharing sees. Each has its ghost and starts invisible;
+// what it says lasts until Machete quits, even if its window is closed and made again. What has no ghost (the
+// screenshots' previews) never stops being invisible.
 import { Channels } from './channels';
 
 /** What a page gets as `window.ghost`. */
@@ -21,37 +22,39 @@ export interface Haunted {
 }
 
 export interface InvisibilityShape {
-  /** From now on `w` is as visible as Machete is, and its page's ghost knows. Again is harmless. */
-  readonly follow: (w: Haunted) => void;
-  readonly invisible: () => boolean;
-  /** For the page `sender`, only if it's one that follows. */
+  /** From now on `w` is as visible as the panel `name` is, and its page's ghost knows. Again is harmless. */
+  readonly follow: (w: Haunted, name: string) => void;
+  readonly invisible: (name: string) => boolean;
+  /** Changes the panel whose page is `sender`, only if it's one that follows. */
   readonly toggle: (sender: number) => void;
 }
 
 export const makeInvisibility = (): InvisibilityShape => {
-  let invisible = true;
-  const windows = new Map<number, Haunted>();
-  const apply = (w: Haunted) => {
+  const visible = new Set<string>();
+  const windows = new Map<number, { readonly w: Haunted; readonly name: string }>();
+  const apply = (w: Haunted, name: string) => {
     if (w.isDestroyed()) return;
+    const invisible = !visible.has(name);
     w.setContentProtection(invisible);
     w.webContents.send(Channels.ghostState, invisible);
   };
   return {
-    follow: (w) => {
+    follow: (w, name) => {
       if (w.isDestroyed()) return;
       const { id } = w.webContents;
       if (!windows.has(id)) {
-        windows.set(id, w);
+        windows.set(id, { w, name });
         w.once('closed', () => windows.delete(id));
-        w.webContents.on('did-finish-load', () => apply(w));
+        w.webContents.on('did-finish-load', () => apply(w, name));
       }
-      apply(w);
+      apply(w, name);
     },
-    invisible: () => invisible,
+    invisible: (name) => !visible.has(name),
     toggle: (sender) => {
-      if (!windows.has(sender)) return;
-      invisible = !invisible;
-      for (const w of windows.values()) apply(w);
+      const from = windows.get(sender);
+      if (!from) return;
+      if (!visible.delete(from.name)) visible.add(from.name);
+      for (const { w, name } of windows.values()) if (name === from.name) apply(w, name);
     },
   };
 };

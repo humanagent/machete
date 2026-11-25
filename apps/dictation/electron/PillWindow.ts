@@ -1,5 +1,5 @@
 // The dictation pill: where the words will go and the voice level. It never takes focus, so the text
-// lands in your app, and it's as visible in screen sharing as the rest of Machete.
+// lands in your app, and it's hidden from screen sharing until its ghost says otherwise.
 import { BrowserWindow, globalShortcut, ipcMain, Menu } from 'electron';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Channels } from '../../../core/ipc';
@@ -86,7 +86,7 @@ export const DictationPillLive = Layer.effect(
       const w = create();
       win = w;
       loaded = false;
-      invisibility.follow(w);
+      invisibility.follow(w, 'dictation');
       releaseWhenIdle(w, IDLE_MS);
       w.on('closed', () => {
         if (win === w) win = undefined;

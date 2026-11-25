@@ -68,7 +68,7 @@ export class ClipboardPicker extends Context.Service<
               onNone: () =>
                 panel.open((w) =>
                   Ref.update(opened, (n) => n + 1).pipe(
-                    Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                    Effect.tap(() => Effect.sync(() => invisibility.follow(w, 'clipboard'))),
                     Effect.andThen(send(w)),
                   ),
                 ),

@@ -89,7 +89,7 @@ export class BotsWindow extends Context.Service<BotsWindow, { readonly toggle: E
               onNone: () =>
                 panel.open((w) =>
                   Ref.update(opened, (n) => n + 1).pipe(
-                    Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                    Effect.tap(() => Effect.sync(() => invisibility.follow(w, 'bots'))),
                     Effect.andThen(send(w)),
                   ),
                 ),

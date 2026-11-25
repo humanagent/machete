@@ -81,7 +81,7 @@ export class SnippetsWindow extends Context.Service<
               onNone: () =>
                 panel.open((w) =>
                   Ref.update(opened, (n) => n + 1).pipe(
-                    Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                    Effect.tap(() => Effect.sync(() => invisibility.follow(w, 'snippets'))),
                     Effect.andThen(send(w)),
                   ),
                 ),

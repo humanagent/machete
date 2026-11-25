@@ -1,5 +1,5 @@
 // Invisibility, the part without Electron: one state for all of Machete, and the windows that follow it. It always
-// starts invisible. What has no ghost (the other panels) never stops being it.
+// starts invisible. What has no ghost (the screenshots' previews) never stops being it.
 import { Channels } from './channels';
 
 /** What a page gets as `window.ghost`. */

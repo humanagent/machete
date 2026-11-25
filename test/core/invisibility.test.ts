@@ -76,10 +76,11 @@ test('every page with a ghost has its bridge, and nobody has another eye', () =>
   const read = (f: string) => readFileSync(join(root, f), 'utf8');
   const pages = [...new Bun.Glob('apps/*/renderer/**/index.html').scanSync(root)];
   const haunted = pages.filter((f) => read(f).includes('id="ghost"'));
-  expect(haunted.length).toBe(4);
+  expect(haunted.length).toBe(8);
   for (const f of haunted) {
-    const app = f.split('/')[1]!;
-    expect([f, read(`apps/${app}/preload/${app}.ts`).includes('exposeGhost()')]).toEqual([f, true]);
+    const [, app, , page] = f.split('/') as [string, string, string, string];
+    const preload = `apps/${app}/preload/${page === 'index.html' ? app : page}.ts`;
+    expect([f, read(preload).includes('exposeGhost()')]).toEqual([f, true]);
     expect([f, read(f.replace('index.html', 'main.ts')).includes('ghost()')]).toEqual([f, true]);
   }
   for (const f of pages) expect([f, /i-eye|class="eye"/.test(read(f))]).toEqual([f, false]);

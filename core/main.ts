@@ -82,11 +82,11 @@ const Ui = Layer.mergeAll(AppsLive, StatusMenuLive, DictationMenuLive).pipe(
   Layer.provideMerge(Dictation.layer),
   Layer.provideMerge(SettingsWindow.layer),
   Layer.provideMerge(Dock.layer),
-  Layer.provideMerge(Invisibility.layer),
   Layer.provideMerge(Apps.layer),
   Layer.provideMerge(Hotkeys.layer),
   Layer.provideMerge(ModifierTaps.layer),
   Layer.provideMerge(Layer.mergeAll(DictationPillLive, Clipboard.layer, PermissionsWindowLive)),
+  Layer.provideMerge(Invisibility.layer),
 );
 
 /** Checks the ChatGPT session and, if macOS still blocks something, opens the permissions guide. Every panel waits

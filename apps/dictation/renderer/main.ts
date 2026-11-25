@@ -1,6 +1,7 @@
 // The dictation pill: the app the words will go to, and thin bars that follow your voice. Click for Finish / Cancel.
 import { Effect, Stream } from 'effect';
 import type { DictationBridge, DictationEvent } from '../ipc';
+import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridgeAll, runMain } from '../../../core/renderer/runtime';
 
 declare global {
@@ -27,6 +28,8 @@ const bars = Array.from({ length: BARS }, () => el.wave.appendChild(document.cre
 const target: Array<number> = new Array(BARS).fill(0);
 const shown: Array<number> = new Array(BARS).fill(0);
 let frame = 0;
+// A press on it is for it: the pill's menu stays closed.
+ghost().addEventListener('mousedown', (e) => e.stopPropagation());
 
 const tick = () => {
   let moving = false;

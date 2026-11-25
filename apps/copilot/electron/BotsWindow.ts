@@ -2,6 +2,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema, Stream } from 'effect';
 import { Channels } from '../../../core/channels';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { makePanel } from '../../../core/electron/Panel';
 import type { BotsState } from '../domain';
 import { type BotsReply, BotsRequest, type BotsShown } from '../ipc';
@@ -32,6 +33,7 @@ export class BotsWindow extends Context.Service<BotsWindow, { readonly toggle: E
       // It stays while you go get a file or some text for it.
       yield* panel.keepOpen(true);
       const opened = yield* Ref.make(0);
+      const invisibility = yield* Invisibility;
 
       const send = (w: Electron.BrowserWindow) =>
         Effect.gen(function* () {
@@ -84,7 +86,13 @@ export class BotsWindow extends Context.Service<BotsWindow, { readonly toggle: E
           Effect.flatMap(
             Option.match({
               onSome: () => panel.hide,
-              onNone: () => panel.open((w) => Ref.update(opened, (n) => n + 1).pipe(Effect.andThen(send(w)))),
+              onNone: () =>
+                panel.open((w) =>
+                  Ref.update(opened, (n) => n + 1).pipe(
+                    Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                    Effect.andThen(send(w)),
+                  ),
+                ),
             }),
           ),
         ),

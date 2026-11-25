@@ -2,6 +2,7 @@
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema } from 'effect';
 import { Channels } from '../../../core/channels';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { makePanel } from '../../../core/electron/Panel';
 import { makeRunner } from '../../../core/electron/Runner';
 import type { Selected } from '../../../core/services/NativeHelper';
@@ -19,6 +20,7 @@ export class RewritePanel extends Context.Service<RewritePanel, { readonly toggl
       const panel = yield* makePanel('rewrite', { width: 420, height: 356 });
       const selected = yield* Ref.make(Option.none<Selected>());
       const opened = yield* Ref.make(0);
+      const invisibility = yield* Invisibility;
 
       const apply = (instruction: string) =>
         Effect.gen(function* () {
@@ -54,7 +56,12 @@ export class RewritePanel extends Context.Service<RewritePanel, { readonly toggl
           text: target.value.text.trim().slice(0, 300),
           opened: yield* Ref.updateAndGet(opened, (n) => n + 1),
         };
-        yield* panel.open((w) => Effect.sync(() => w.webContents.send(Channels.rewriteState, state)));
+        yield* panel.open((w) =>
+          Effect.sync(() => {
+            invisibility.follow(w);
+            w.webContents.send(Channels.rewriteState, state);
+          }),
+        );
       });
 
       return {

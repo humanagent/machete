@@ -1,6 +1,7 @@
 // The bots panel: type to filter, ↑↓ to choose, ↩ to use it, ⌘N to add; the right side edits the open one (saved as
 // you type), and files dropped there are added to what it knows.
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../../core/renderer/runtime';
 import { type BotField, BotsEditor, searchBots } from '../../botsEditor';
 import type { BotsBridge } from '../../ipc';
@@ -128,6 +129,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 let opened = -1;
+ghost();
 runMain(
   fromBridge(window.bots.onState).pipe(
     Stream.runForEach((state) =>

@@ -36,7 +36,7 @@ describe('buildPrompt', () => {
 
   test('context, transcript with partials, history', () => {
     const out = L.buildPrompt('What next?', {
-      context: '  My resume  ',
+      context: '  My notes  ',
       lines: [
         { speaker: 'them', text: 'Hi' },
         { speaker: 'me', text: 'Hello' },
@@ -50,7 +50,7 @@ describe('buildPrompt', () => {
       ],
     });
     expect(out).toBe(
-      'Context about me / this session:\n<context>\nMy resume\n</context>\n\n' +
+      'Context about me / this session:\n<context>\nMy notes\n</context>\n\n' +
         'Attached is a screenshot of my screen right now.\n' +
         'Live transcript of the current conversation ("Me" = my microphone, "Them" = the other people / computer audio):\n' +
         '<transcript>\nThem: Hi\nMe: Hello\nThem: So tell\nMe: Sure\n</transcript>\n\n' +
@@ -75,24 +75,8 @@ describe('buildPrompt', () => {
   });
 });
 
-test('upgradeProfiles replaces untouched old system design prompts only', () => {
-  const out = L.upgradeProfiles([
-    { id: 'A', name: 'SD', instructions: `\n${Strings.previousSystemDesignPrompt3}\n`, context: '' },
-    { id: 'B', name: 'Mine', instructions: 'custom', context: '' },
-  ]);
-  expect(out[0]?.instructions).toBe(Strings.systemDesignPrompt);
-  expect(out[1]?.instructions).toBe('custom');
-});
-
 test('default bots', () => {
-  expect(Strings.defaultProfiles.map((p) => p.name)).toEqual([
-    'General',
-    'Coding Interview',
-    'System Design Interview',
-    'Behavioral Interview',
-    'Recruiter Screen',
-    'Sales',
-  ]);
+  expect(Strings.defaultProfiles.map((p) => p.name)).toEqual(['General', 'Sales']);
   expect(
     Strings.defaultProfiles[0]?.instructions.startsWith('You are Machete, a real-time assistant on my Mac.'),
   ).toBe(true);

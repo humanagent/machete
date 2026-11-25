@@ -1,7 +1,7 @@
 import AppKit
 import PDFKit
 
-/// Same extraction as the native app (ContextFiles.swift): resume, job description, notes → plain text.
+/// Same extraction as the native app (ContextFiles.swift): notes and documents → plain text.
 enum Extract {
     static func text(from url: URL) -> String? {
         let ext = url.pathExtension.lowercased()

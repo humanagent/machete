@@ -2,7 +2,6 @@
 import { randomUUID } from 'node:crypto';
 import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from 'effect';
 import { Profile } from '../domain';
-import { upgradeProfiles } from '../logic';
 import { Strings } from '../strings';
 import type { StorageError } from '../../../core/errors';
 import { AppPaths } from '../../../core/services/AppPaths';
@@ -50,14 +49,12 @@ export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreShap
               onSome: (list) =>
                 list.length === 0
                   ? defaultProfiles()
-                  : upgradeProfiles(
-                      list.map((p) => ({
-                        id: p.id,
-                        name: p.name ?? '',
-                        instructions: p.instructions ?? '',
-                        context: p.context ?? '',
-                      })),
-                    ),
+                  : list.map((p) => ({
+                      id: p.id,
+                      name: p.name ?? '',
+                      instructions: p.instructions ?? '',
+                      context: p.context ?? '',
+                    })),
             }),
           ),
         ),

@@ -81,7 +81,6 @@ export const fakeHelper = (overrides: Partial<NativeHelperShape> = {}) =>
       setSnippets: (items) => record(`snippets.set:${items.map((s) => s.abbreviation).join(',')}`),
       readSelection: Effect.succeed({ text: 'hola mudno', pid: 7 }),
       replaceSelection: (text, pid) => record(`selection.replace:${pid}:${text}`).pipe(Effect.as(true)),
-      pasteClip: (text) => record(`clipboard.paste:${text}`),
       permissionStatus: Effect.succeed({
         microphone: 'granted',
         screen: 'granted',

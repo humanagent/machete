@@ -1,7 +1,7 @@
 {
   "name": "machete",
   "productName": "Machete",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "license": "MIT",
   "description": "A suite of small Mac tools in one menu bar app: Copilot, Dictation, Rewrite, Windows, Clipboard, Screenshots, Snippets and Calculator.",
   "private": true,

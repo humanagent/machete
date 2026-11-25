@@ -236,7 +236,7 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
         });
         win.setAlwaysOnTop(true, 'status');
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-        invisibility.follow(win);
+        invisibility.follow(win, 'copilot');
         // Where the last one was.
         if (g.anchorTop !== null && g.anchorMidX !== null)
           win.setPosition(Math.round(g.anchorMidX - width / 2), g.anchorTop);

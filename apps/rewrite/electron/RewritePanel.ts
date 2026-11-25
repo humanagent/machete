@@ -58,7 +58,7 @@ export class RewritePanel extends Context.Service<RewritePanel, { readonly toggl
         };
         yield* panel.open((w) =>
           Effect.sync(() => {
-            invisibility.follow(w);
+            invisibility.follow(w, 'rewrite');
             w.webContents.send(Channels.rewriteState, state);
           }),
         );

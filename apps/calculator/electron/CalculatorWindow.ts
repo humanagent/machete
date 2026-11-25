@@ -59,7 +59,7 @@ export class CalculatorWindow extends Context.Service<
                 panel
                   .open((w) =>
                     Ref.update(opened, (n) => n + 1).pipe(
-                      Effect.tap(() => Effect.sync(() => invisibility.follow(w))),
+                      Effect.tap(() => Effect.sync(() => invisibility.follow(w, 'calculator'))),
                       Effect.andThen(send(w)),
                     ),
                   )

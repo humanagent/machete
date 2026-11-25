@@ -76,7 +76,7 @@ export class ScreenshotEditor extends Context.Service<
             };
             yield* panel.open((w) =>
               Effect.sync(() => {
-                invisibility.follow(w);
+                invisibility.follow(w, 'editor');
                 w.webContents.send(Channels.editorState, state);
               }),
             );

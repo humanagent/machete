@@ -19,7 +19,6 @@ import AVFoundation
 //   {"id":8,"cmd":"modifiers.watch"}                 -> {"id":8,"ok":true|false}; then {"type":"modifier","key":"RightAlt"|"RightCommand"|"RightControl"|"RightShift"} on each lone tap
 //   {"id":9,"cmd":"window.snap","to":"left"|"right"|"maximize"} -> {"id":9,"ok":true|false} (the focused window of the frontmost app)
 //   {"id":10,"cmd":"clipboard.watch"}              -> {"id":10,"ok":true}; then {"type":"clipboard","text":…} on each new text copy
-//   {"id":11,"cmd":"clipboard.paste","text":…}     -> {"id":11,"ok":true|false} (puts it on the clipboard and sends ⌘V)
 //   {"id":12,"cmd":"snippets.set","items":[{"abbreviation":…,"content":…}]} -> {"id":12,"ok":true|false} (false: no Input Monitoring)
 //   {"id":13,"cmd":"selection.read"}                -> {"id":13,"ok":true,"text":…,"pid":…} (the text selected in the frontmost app)
 //   {"id":14,"cmd":"selection.replace","text":…,"pid":…} -> {"id":14,"ok":true,"pasted":true|false} (false: left on the clipboard)
@@ -266,10 +265,6 @@ final class Server {
         case "clipboard.watch":
             Clipboard.watch { text in Out.emit(["type": "clipboard", "text": text]) }
             reply(id, ["ok": true])
-
-        case "clipboard.paste":
-            let ok = await Clipboard.paste(cmd["text"] as? String ?? "")
-            reply(id, ok ? ["ok": true] : ["ok": false, "error": "accessibility"])
 
         case "snippets.set":
             let ok = Snippets.set(cmd["items"] as? [[String: Any]] ?? [])

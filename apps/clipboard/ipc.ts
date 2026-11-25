@@ -9,8 +9,6 @@ export const ClipboardState = Schema.Struct({
 export type ClipboardState = typeof ClipboardState.Type;
 
 export const ClipboardCommand = Schema.TaggedUnion({
-  /** Pastes the entry into the app you're in. */
-  Paste: { text: Schema.String },
   /** Makes it the last thing copied, for the next ⌘V. */
   Copy: { text: Schema.String },
   Remove: { text: Schema.String },

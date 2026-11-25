@@ -44,17 +44,6 @@ test('every change reaches the helper and snippets.json (private)', async () => 
   expect(mode).toBe(0o600);
 });
 
-test('pasting types the text', async () => {
-  await run((snippets, helper) =>
-    Effect.gen(function* () {
-      const id = yield* snippets.add;
-      yield* snippets.update(id, 'gg', 'hola');
-      yield* snippets.paste(id);
-      expect(helper.log.typed).toEqual(['hola']);
-    }),
-  );
-});
-
 test('without Input Monitoring it says so; a helper restart sends the snippets again', async () => {
   let sent = 0;
   await run(

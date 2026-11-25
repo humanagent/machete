@@ -1,6 +1,6 @@
 import AppKit
 
-/// Clipboard history: notices new text on the clipboard and pastes a chosen entry back.
+/// Clipboard history: notices new text on the clipboard.
 /// Text only; whatever a password manager marks as concealed or transient is never seen.
 enum Clipboard {
     /// The nspasteboard.org markers: passwords, one-off values, and Machete's own dictation paste.
@@ -62,21 +62,5 @@ enum Clipboard {
             }
         }
         timer?.tolerance = 0.2 // lets macOS join it with other wakeups
-    }
-
-    /// Puts `text` on the clipboard and sends ⌘V to the app in front. It stays on the clipboard, like a copy.
-    @MainActor static func paste(_ text: String) async -> Bool {
-        guard Dictation.canType(prompt: true) else { return false }
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(text, forType: .string)
-        if Typing.needed(for: text) { await Typing.type(text); return true }
-        let src = CGEventSource(stateID: .combinedSessionState)
-        for down in [true, false] {
-            let e = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: down) // V
-            e?.flags = .maskCommand
-            e?.post(tap: .cghidEventTap)
-        }
-        return true
     }
 }

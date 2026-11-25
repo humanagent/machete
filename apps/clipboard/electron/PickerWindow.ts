@@ -1,5 +1,5 @@
-// The clipboard picker (⇧⌘V): a quick panel listing what you copied; the chosen entry is pasted into your app,
-// or copied again with a double click.
+// The clipboard picker (⇧⌘V): a quick panel listing what you copied; the chosen entry is copied again.
+// It never pastes: that's your own ⌘V.
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema, Stream } from 'effect';
 import { Channels } from '../../../core/channels';
@@ -7,7 +7,6 @@ import { Invisibility } from '../../../core/electron/Invisibility';
 import { Clipboard } from '../../../core/electron/Platform';
 import { makePanel } from '../../../core/electron/Panel';
 import { makeRunner } from '../../../core/electron/Runner';
-import { PermissionsGuide } from '../../../core/services/PermissionsGuide';
 import { ClipboardCommand, type ClipboardState } from '../ipc';
 import { ClipboardHistory } from '../services/ClipboardHistory';
 
@@ -20,7 +19,6 @@ export class ClipboardPicker extends Context.Service<
     Effect.gen(function* () {
       const history = yield* ClipboardHistory;
       const clipboard = yield* Clipboard;
-      const guide = yield* PermissionsGuide;
       const run = yield* makeRunner<never>();
       // The list (460) and the full-text preview beside it.
       const panel = yield* makePanel('clipboard', { width: 800, height: 520 });
@@ -36,22 +34,11 @@ export class ClipboardPicker extends Context.Service<
           if (!w.isDestroyed()) w.webContents.send(Channels.clipboardState, state);
         });
 
-      const paste = (text: string) =>
-        panel.hide.pipe(
-          // Let the panel go before ⌘V, so the keystroke reaches the app underneath.
-          Effect.andThen(Effect.sleep('60 millis')),
-          Effect.andThen(history.paste(text)),
-          Effect.catch((e) =>
-            e.message === 'accessibility' ? guide.show : Effect.logWarning(`clipboard: paste: ${e.message}`),
-          ),
-        );
-
       const decode = Schema.decodeUnknownOption(ClipboardCommand);
       const onCommand = (_event: Electron.IpcMainEvent, raw: unknown) =>
         Option.map(decode(raw), (command) =>
           run(
             ClipboardCommand.match(command, {
-              Paste: ({ text }) => paste(text),
               // Nothing is typed anywhere: the panel goes, and ⌘V pastes it where you want.
               Copy: ({ text }) =>
                 clipboard.write(text).pipe(Effect.andThen(history.raise(text)), Effect.andThen(panel.hide)),

@@ -1,7 +1,6 @@
 // Clipboard history: every text you copy, newest first, kept in clipboard.json (text only, 200 entries).
-// The helper reports copies (skipping what password managers mark as concealed); picking one pastes it.
+// The helper reports copies (skipping what password managers mark as concealed) and what the picker copies again.
 import { Context, Effect, FileSystem, Layer, Option, Path, Stream, SubscriptionRef } from 'effect';
-import type { HelperError } from '../../../core/errors';
 import { readJson, writeJson } from '../../../core/services/JsonFile';
 import { AppPaths } from '../../../core/services/AppPaths';
 import { NativeHelper } from '../../../core/services/NativeHelper';
@@ -10,8 +9,6 @@ import { ClipboardHistoryFile, forget, remember } from '../history';
 export interface ClipboardHistoryShape {
   readonly items: Effect.Effect<ReadonlyArray<string>>;
   readonly changes: Stream.Stream<ReadonlyArray<string>>;
-  /** Pastes `text` into the app you're in; it also moves to the top. */
-  readonly paste: (text: string) => Effect.Effect<void, HelperError>;
   /** `text` goes to the top. */
   readonly raise: (text: string) => Effect.Effect<void>;
   readonly remove: (text: string) => Effect.Effect<void>;
@@ -64,7 +61,6 @@ export class ClipboardHistory extends Context.Service<ClipboardHistory, Clipboar
       return {
         items: SubscriptionRef.get(items),
         changes: SubscriptionRef.changes(items),
-        paste: (text) => helper.pasteClip(text).pipe(Effect.andThen(change((xs) => remember(xs, text)))),
         raise: (text) => change((xs) => remember(xs, text)),
         remove: (text) => change((xs) => forget(xs, text)),
         clear: change(() => []),

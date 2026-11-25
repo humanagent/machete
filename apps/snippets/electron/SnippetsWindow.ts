@@ -1,4 +1,4 @@
-// The snippets panel (⇧⌘C): search your snippets and paste or copy one, or add and edit them.
+// The snippets panel (⇧⌘C): search your snippets and copy one, or add and edit them.
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema, Stream } from 'effect';
 import { Channels } from '../../../core/channels';
@@ -40,14 +40,6 @@ export class SnippetsWindow extends Context.Service<
           Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: (w) => send(w, created) })),
         );
 
-      const paste = (id: string) =>
-        panel.hide.pipe(
-          // Let the panel go before ⌘V, so the keystroke reaches the app underneath.
-          Effect.andThen(Effect.sleep('60 millis')),
-          Effect.andThen(snippets.paste(id)),
-          Effect.catch((e) => Effect.logWarning(`snippets: paste: ${e.message}`)),
-        );
-
       // Nothing is typed anywhere: the panel goes, and ⌘V pastes it where you want.
       const copy = (id: string) =>
         snippets.items.pipe(
@@ -62,7 +54,6 @@ export class SnippetsWindow extends Context.Service<
         Option.map(decode(raw), (command) =>
           run(
             SnippetsCommand.match(command, {
-              Paste: ({ id }) => paste(id),
               Copy: ({ id }) => copy(id),
               Add: () => snippets.add.pipe(Effect.flatMap((id) => sendIfOpen(id))),
               Update: ({ id, abbreviation, content }) => snippets.update(id, abbreviation, content),

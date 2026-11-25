@@ -1,4 +1,4 @@
-// The snippets panel: type to filter, ↑↓ to choose, ↩ to paste, double-click to copy, ⌘N to add; the right side edits the
+// The snippets panel: type to filter, ↑↓ to choose, ↩ or a double click to copy, ⌘N to add; the right side edits the
 // selected snippet (saved as you type).
 import { Effect, Stream } from 'effect';
 import { ghost } from '../../../core/renderer/ghost';
@@ -81,11 +81,6 @@ const select = (i: number) => {
   showEditor();
 };
 
-const paste = (i: number) => {
-  const s = shown[i];
-  if (s !== undefined) send({ _tag: 'Paste', id: s.id });
-};
-
 const copy = (i: number) => {
   const s = shown[i];
   if (s !== undefined) send({ _tag: 'Copy', id: s.id });
@@ -145,7 +140,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.metaKey && e.key === 'n') send({ _tag: 'Add' });
   else if (inList && e.key === 'ArrowDown') select(selected + 1);
   else if (inList && e.key === 'ArrowUp') select(selected - 1);
-  else if (inList && e.key === 'Enter') paste(selected);
+  else if (inList && e.key === 'Enter') copy(selected);
   else return;
   e.preventDefault();
 });

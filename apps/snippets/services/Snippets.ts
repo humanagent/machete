@@ -2,7 +2,6 @@
 // passwords). Every change is sent to the helper, which watches the keyboard and does the expanding.
 import { randomUUID } from 'node:crypto';
 import { Context, Effect, FileSystem, Layer, Option, Path, Ref, Stream, SubscriptionRef } from 'effect';
-import type { HelperError } from '../../../core/errors';
 import { AppPaths } from '../../../core/services/AppPaths';
 import { readJson, writeJson } from '../../../core/services/JsonFile';
 import { NativeHelper } from '../../../core/services/NativeHelper';
@@ -17,8 +16,6 @@ export interface SnippetsShape {
   readonly add: Effect.Effect<string>;
   readonly update: (id: string, abbreviation: string, content: string) => Effect.Effect<void>;
   readonly remove: (id: string) => Effect.Effect<void>;
-  /** Types the snippet's text into the app you're in. */
-  readonly paste: (id: string) => Effect.Effect<void, HelperError>;
 }
 
 export class Snippets extends Context.Service<Snippets, SnippetsShape>()('machete/Snippets') {
@@ -72,11 +69,6 @@ export class Snippets extends Context.Service<Snippets, SnippetsShape>()('machet
         update: (id, abbreviation, content) =>
           change((xs) => xs.map((s) => (s.id === id ? { id, abbreviation, content } : s))),
         remove: (id) => change((xs) => xs.filter((s) => s.id !== id)),
-        paste: (id) =>
-          SubscriptionRef.get(items).pipe(
-            Effect.map((xs) => xs.find((s) => s.id === id)),
-            Effect.flatMap((s) => (s ? helper.paste(s.content) : Effect.void)),
-          ),
       } satisfies SnippetsShape;
     }),
   );

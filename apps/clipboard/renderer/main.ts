@@ -1,5 +1,5 @@
-// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ to paste, double-click to copy,
-// ⌥⌫ to delete, Esc to close.
+// The clipboard picker: type to filter, ↑↓ or ⌘1–9 to choose, ↩ or a double click to copy
+// (pasting is always your own ⌘V), ⌥⌫ to delete, Esc to close.
 import { Effect, Stream } from 'effect';
 import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
@@ -72,11 +72,6 @@ const select = (i: number) => {
   showFull();
 };
 
-const paste = (i: number) => {
-  const text = shown[i];
-  if (text !== undefined) window.clipboardHistory.send({ _tag: 'Paste', text });
-};
-
 const copy = (i: number) => {
   const text = shown[i];
   if (text !== undefined) window.clipboardHistory.send({ _tag: 'Copy', text });
@@ -106,8 +101,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') window.clipboardHistory.send({ _tag: 'Close' });
   else if (e.key === 'ArrowDown') select(selected + 1);
   else if (e.key === 'ArrowUp') select(selected - 1);
-  else if (e.key === 'Enter' && document.activeElement !== ghostButton) paste(selected);
-  else if (e.metaKey && /^[1-9]$/.test(e.key)) paste(Number(e.key) - 1);
+  else if (e.key === 'Enter' && document.activeElement !== ghostButton) copy(selected);
+  else if (e.metaKey && /^[1-9]$/.test(e.key)) copy(Number(e.key) - 1);
   else if (e.altKey && e.key === 'Backspace') {
     const text = shown[selected];
     if (text !== undefined) window.clipboardHistory.send({ _tag: 'Remove', text });

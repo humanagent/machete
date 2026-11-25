@@ -110,8 +110,6 @@ export interface NativeHelperShape {
   readonly snapWindow: (to: WindowSnap) => Effect.Effect<void, HelperError>;
   /** Starts the `clipboard` events (one per new text copy); re-armed after a helper restart. */
   readonly watchClipboard: Effect.Effect<void, HelperError>;
-  /** Puts `text` on the clipboard and sends ⌘V; fails with "accessibility". */
-  readonly pasteClip: (text: string) => Effect.Effect<void, HelperError>;
   /** The abbreviations the helper expands as you type; fails with "input-monitoring". */
   readonly setSnippets: (
     items: ReadonlyArray<{ readonly abbreviation: string; readonly content: string }>,
@@ -357,8 +355,6 @@ export class NativeHelper extends Context.Service<NativeHelper, NativeHelperShap
               Effect.map((r) => r.pasted),
             ),
           watchClipboard: request('clipboard.watch', {}, Nothing).pipe(Effect.asVoid),
-          pasteClip: (text) =>
-            request('clipboard.paste', { text }, Nothing, Duration.seconds(5)).pipe(Effect.asVoid),
           snapWindow: (to) =>
             request('window.snap', { to }, Nothing, Duration.seconds(5)).pipe(Effect.asVoid),
           permissionStatus: oneShot(['permissions'], PermissionsSnapshot),

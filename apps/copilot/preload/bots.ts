@@ -1,6 +1,7 @@
 // Exposes the bots panel's bridge as `window.bots`.
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Channels } from '../../../core/channels';
+import { exposeGhost } from '../../../core/preload/ghost';
 import { listen } from '../../../core/preload/listen';
 import type { BotsBridge, BotsShown } from '../ipc';
 
@@ -11,3 +12,4 @@ const bridge: BotsBridge = {
 };
 
 contextBridge.exposeInMainWorld('bots', bridge);
+exposeGhost();

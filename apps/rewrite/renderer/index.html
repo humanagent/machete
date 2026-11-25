@@ -8,11 +8,18 @@
     />
     <link rel="stylesheet" href="../machete.css" />
     <style>
+      .about {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-top: 0.5px solid var(--line);
+        padding: 8px 6px 4px 14px;
+      }
       /* The selected text, in two lines at most. */
       #text {
-        flex: none;
-        border-top: 0.5px solid var(--line);
-        padding: 8px 14px 4px;
+        flex: 1;
+        min-width: 0;
         font-size: 11.5px;
         color: var(--text-dim);
         display: -webkit-box;
@@ -26,7 +33,10 @@
     <div class="panel column">
       <input id="ask" class="field" placeholder="What should change?" spellcheck="false" autocomplete="off" />
       <ol id="list" class="list"></ol>
-      <div id="text"></div>
+      <div class="about">
+        <div id="text"></div>
+        <button id="ghost" class="ghost" type="button"></button>
+      </div>
     </div>
     <script src="main.js"></script>
   </body>

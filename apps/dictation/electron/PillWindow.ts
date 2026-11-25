@@ -1,5 +1,5 @@
 // The dictation pill: where the words will go and the voice level. It never takes focus, so the text
-// lands in your app, and it is always hidden from screen sharing.
+// lands in your app, and it's as visible in screen sharing as the rest of Machete.
 import { BrowserWindow, globalShortcut, ipcMain, Menu } from 'electron';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Channels } from '../../../core/ipc';
@@ -9,6 +9,7 @@ import { preloadFile, rendererFile } from '../../../core/electron/paths';
 import { placeOnActive } from '../../../core/electron/ActiveScreen';
 import { pillGlass } from '../../../core/glass';
 import { setGlass } from '../../../core/electron/Glass';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { hideWindow, releaseWhenIdle } from '../../../core/electron/Idle';
 import { makeRunner } from '../../../core/electron/Runner';
 
@@ -61,6 +62,7 @@ const create = () => {
 export const DictationPillLive = Layer.effect(
   DictationPill,
   Effect.gen(function* () {
+    const invisibility = yield* Invisibility;
     let win: BrowserWindow | undefined;
     let loaded = false;
     /** What it shows now, or will once its page loads: showing it never waits, so the microphone doesn't either. */
@@ -84,6 +86,7 @@ export const DictationPillLive = Layer.effect(
       const w = create();
       win = w;
       loaded = false;
+      invisibility.follow(w);
       releaseWhenIdle(w, IDLE_MS);
       w.on('closed', () => {
         if (win === w) win = undefined;

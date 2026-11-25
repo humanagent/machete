@@ -2,6 +2,7 @@
 import { ipcMain } from 'electron';
 import { Context, Effect, Layer, Option, Ref, Schema } from 'effect';
 import { Channels } from '../../../core/channels';
+import { Invisibility } from '../../../core/electron/Invisibility';
 import { makePanel } from '../../../core/electron/Panel';
 import { makeRunner } from '../../../core/electron/Runner';
 import { NativeHelper } from '../../../core/services/NativeHelper';
@@ -32,6 +33,7 @@ export class ScreenshotEditor extends Context.Service<
       // Clicking elsewhere doesn't lose what you're doing.
       yield* panel.keepOpen(true);
       const opened = yield* Ref.make(0);
+      const invisibility = yield* Invisibility;
       const result = yield* Ref.make(Option.none<EditorResult>());
 
       const finish = (dataURL: string, use: (r: EditorResult, png: Uint8Array) => Effect.Effect<boolean>) =>
@@ -72,7 +74,12 @@ export class ScreenshotEditor extends Context.Service<
               wallpaper,
               frame: yield* screenshots.frame,
             };
-            yield* panel.open((w) => Effect.sync(() => w.webContents.send(Channels.editorState, state)));
+            yield* panel.open((w) =>
+              Effect.sync(() => {
+                invisibility.follow(w);
+                w.webContents.send(Channels.editorState, state);
+              }),
+            );
           }),
       };
     }),

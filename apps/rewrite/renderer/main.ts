@@ -1,5 +1,6 @@
 // The rewrite panel: type to filter the list, or type any instruction. ↑↓ and ↩, or ⌘1–9; Esc closes.
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../core/renderer/runtime';
 import type { RewriteBridge, RewriteState } from '../ipc';
 import { PRESETS } from '../presets';
@@ -13,6 +14,7 @@ declare global {
 const el = { ask: byId<HTMLInputElement>('ask'), list: byId('list'), text: byId('text') };
 let selected = 0;
 let opened = -1;
+const ghostButton = ghost();
 
 interface Choice {
   readonly name: string;
@@ -62,7 +64,7 @@ document.addEventListener('keydown', (e) => {
   if (e.isComposing) return;
   const items = choices();
   if (e.key === 'Escape') window.rewrite.send({ _tag: 'Close' });
-  else if (e.key === 'Enter') apply(items[selected]);
+  else if (e.key === 'Enter' && document.activeElement !== ghostButton) apply(items[selected]);
   else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     selected += e.key === 'ArrowDown' ? 1 : -1;
     render();

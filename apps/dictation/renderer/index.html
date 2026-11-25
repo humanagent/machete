@@ -45,6 +45,9 @@
       .brand i {
         transform: scale(0.8);
       }
+      .top .ghost {
+        margin: -4px -8px -4px -4px;
+      }
       /* Thin bars that breathe with the voice; heights are eased every frame in main.ts. */
       .wave {
         display: flex;
@@ -111,7 +114,8 @@
     <div class="panel pill" id="pill">
       <div class="top">
         <img id="icon" alt="" hidden /><span class="app" id="app"></span
-        ><span class="brand"><i class="i-waveform"></i>Machete</span>
+        ><span class="brand"><i class="i-waveform"></i>Machete</span
+        ><button id="ghost" class="ghost" type="button"></button>
       </div>
       <div class="wave" id="wave"></div>
       <div class="status" id="status" hidden></div>

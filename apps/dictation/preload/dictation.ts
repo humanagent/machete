@@ -2,6 +2,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { Channels } from '../../../core/channels';
 import type { DictationBridge, DictationEvent } from '../ipc';
+import { exposeGhost } from '../../../core/preload/ghost';
 import { listen } from '../../../core/preload/listen';
 
 const bridge: DictationBridge = {
@@ -10,3 +11,4 @@ const bridge: DictationBridge = {
 };
 
 contextBridge.exposeInMainWorld('dictation', bridge);
+exposeGhost();

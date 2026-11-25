@@ -1,6 +1,8 @@
 # Machete
 
-A suite of small Mac tools in one menu bar app, built with Electron; macOS today, Windows next.
+A suite of small Mac tools in one menu bar app, built with Electron; macOS today, Windows next. Why it exists: [Personal software thesis](https://medium.com/@humanagent/personal-software-thesis-31aa475246c7).
+
+**[Download for Mac](https://machetetools.com/download/Machete.dmg)** (macOS 14+, Apple Silicon), or try every program in the browser, without an account, at [machetetools.com](https://machetetools.com/).
 
 - **Copilot**: a minimal, translucent panel that sees your screen, listens to your conversation, and answers using **your ChatGPT plan** via [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart).
 - **Dictation**: speak, and the words are typed into the app you're in.
@@ -18,14 +20,15 @@ A suite of small Mac tools in one menu bar app, built with Electron; macOS today
 - **System design framework**: the System Design bot follows Requirements → Core Entities → API → Data Flow → High-Level Design → Deep Dives.
 - **Follow mode**: watches the screen and the conversation and only speaks up when you make a mistake, without reopening a hidden panel.
 - **Recording**: on-device transcription of your mic ("Me") and system audio ("Them"); the transcript is sent as context with every question. Optional auto-answer when the other side asks a question.
-- **Uses your ChatGPT subscription**: Sign in with ChatGPT (OAuth with PKCE, loopback redirect), streaming Responses API requests billed to your Plus/Pro plan. Signing in is required.
+- **Uses your ChatGPT subscription**: Sign in with ChatGPT (OAuth with PKCE, loopback redirect), streaming Responses API requests billed to your Plus/Pro plan. Copilot and Rewrite need it; Dictation works without it, and with it the text is cleaned up. The rest never asks.
 - **Windows**: ⌃A, ⌃D and ⌃W put the focused window on the left half, the right half or the whole screen (needs Accessibility).
 - **Clipboard history**: ⇧⌘V lists the last 200 texts you copied; type to filter, ↩, ⌘1–9 or a double click copies it for your next ⌘V (it never pastes by itself), ⌥⌫ deletes. Text only; what password managers mark as concealed is never kept.
 - **Snippets**: type an abbreviation in any app and it becomes its text (at the start of a word, or anywhere if it starts with a symbol like `;`). ⇧⌘C searches and edits them; ↩ or a double click copies one for your next ⌘V. Needs Input Monitoring and Accessibility.
 - **Rewrite**: select text in any app and press ⇧⌘G: ChatGPT fixes spelling and grammar in place. ⌥⇧⌘G opens a panel with more (improve, shorter, formal, friendlier, translate) or any instruction you type. ⌘Z brings the original back. The selected text is sent to ChatGPT only when you press it; needs Accessibility and being signed in. In terminals the result is copied instead of pasted.
 - **Screenshots**: ⇧⌘3 takes the screen with the pointer, ⇧⌘4 an area (Space picks a window, Esc cancels). Each one floats at the bottom left until you copy it, save it to the Desktop, drag it into an app (Duplicate first, to drag it more than once) or close it. The pencil opens the editor, which adds a frame: your wallpaper or a color behind it, rounded corners and a shadow. Needs Screen Recording.
 - **Calculator**: ⇧⌘D opens a sheet where every line shows its result: arithmetic, percentages (`15% of 200`, `200 + 10%`), units (`5 kg in lb`, `100 °F in °C`), currencies with daily rates (`100 usd in ars`), variables (`rent = 1200`), `prev`, `sum`, `# headings`, `Label: 3 * 4`. Click a result to copy it.
-- **Private Copilot**: stays out of sight until you call it, and out of screenshots and screen shares; the ghost shows it for the current session. No Dock icon, resizable by dragging its edges.
+- **Ghosts**: every panel stays out of screenshots and screen shares. The ghost in any of them shows them all, until you click it again or quit. Only the screenshots' floating previews always stay hidden.
+- **Private Copilot**: stays out of sight until you call it. No Dock icon, resizable by dragging its edges.
 
 ## Settings
 

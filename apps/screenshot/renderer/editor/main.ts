@@ -1,5 +1,6 @@
 // The screenshot editor: draws the screenshot with its frame at full size; the canvas is what gets copied or saved.
 import { Effect, Stream } from 'effect';
+import { ghost } from '../../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../../core/renderer/runtime';
 import { BACKGROUNDS, COLORS, cover, DEFAULT_FRAME, type Frame, layout, SIZES } from '../../frame';
 import type { EditorBridge, EditorState } from '../../ipc';
@@ -23,6 +24,7 @@ let frame: Frame = DEFAULT_FRAME;
 let image: HTMLImageElement | undefined;
 let wallpaper: HTMLImageElement | undefined;
 let opened = -1;
+ghost();
 
 const load = (src: string) =>
   Effect.callback<HTMLImageElement | undefined>((resume) => {

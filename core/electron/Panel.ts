@@ -1,6 +1,6 @@
 // The quick panels (clipboard, snippets): a non-activating, translucent window, so the app you're in keeps
-// focus and whatever you pick is typed right there. Built on first use, hidden when it loses focus, hidden
-// from screen sharing.
+// focus and whatever you pick is typed right there. Built on first use, hidden when it loses focus, and
+// hidden from screen sharing until it follows Invisibility.
 import { BrowserWindow } from 'electron';
 import { Effect, Option, Ref, type Scope, Semaphore } from 'effect';
 import { draggedTo, type Point } from '../place';

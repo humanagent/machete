@@ -1,4 +1,4 @@
-// Files dropped or chosen in the Bots window (resume, job description, notes) become text in a bot's context.
+// Files dropped or chosen in the Bots window (notes, documents) become text in a bot's context.
 import { basename, extname } from 'node:path';
 import { Context, Effect, FileSystem, Layer, Option } from 'effect';
 import { NativeHelper } from '../../../core/services/NativeHelper';
@@ -28,7 +28,7 @@ export const stripHTML = (s: string): string =>
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
 
-/** "--- resume.pdf ---\n<text>", ready to append to a context. */
+/** "--- notes.pdf ---\n<text>", ready to append to a context. */
 export const contextBlock = (file: string, text: string): Option.Option<string> => {
   const trimmed = text.trim();
   return trimmed === '' ? Option.none() : Option.some(`--- ${basename(file)} ---\n${trimmed}`);

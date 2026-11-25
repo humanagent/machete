@@ -15,18 +15,18 @@ test('the default bots when there is no file', async () => {
   expect(profiles.every((p) => /^[0-9A-F-]{36}$/.test(p.id))).toBe(true);
 });
 
-test('reads older files with missing fields and upgrades untouched prompts', async () => {
+test('reads older files with missing fields, and keeps the bots you have', async () => {
   const profiles = await runInTempDir(
     layer,
     () => load,
     (dir) =>
       writeFile(
         join(dir, 'profiles.json'),
-        JSON.stringify([{ id: 'A', name: 'SD', instructions: Strings.oldSystemDesignPrompt }, { id: 'B' }]),
+        JSON.stringify([{ id: 'A', name: 'SD', instructions: 'Yours' }, { id: 'B' }]),
       ),
   );
   expect(profiles).toEqual([
-    { id: 'A', name: 'SD', instructions: Strings.systemDesignPrompt, context: '' },
+    { id: 'A', name: 'SD', instructions: 'Yours', context: '' },
     { id: 'B', name: '', instructions: '', context: '' },
   ]);
 });

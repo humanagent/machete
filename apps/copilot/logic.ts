@@ -62,21 +62,6 @@ export const buildPrompt = (question: string, input: PromptInput = {}): string =
   return `${c}\nAttached is a screenshot of my screen right now.\n${t}\n${h}\nTask: ${task}`;
 };
 
-/** Replaces built-in prompts the user never edited with their current version. */
-export const upgradeProfiles = (profiles: ReadonlyArray<Profile>): ReadonlyArray<Profile> => {
-  const previous = new Set(
-    [
-      Strings.oldSystemDesignPrompt,
-      Strings.previousSystemDesignPrompt2,
-      Strings.previousSystemDesignPrompt3,
-      Strings.previousSystemDesignPrompt4,
-    ].map((p) => p.trim()),
-  );
-  return profiles.map((p) =>
-    previous.has(p.instructions.trim()) ? { ...p, instructions: Strings.systemDesignPrompt } : p,
-  );
-};
-
 /** Mean absolute difference (0-255) between two screen fingerprints; 255 when they can't be compared. */
 export const fingerprintDifference = (a: ReadonlyArray<number>, b: ReadonlyArray<number>): number => {
   if (a.length !== b.length || a.length === 0) return 255;

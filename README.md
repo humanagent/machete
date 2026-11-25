@@ -18,8 +18,7 @@ A suite of small Mac tools in one menu bar app, built with Electron; macOS today
 ## Features
 
 - **Plain-text answers**: short, direct text you can read at a glance, with code rendered as a code block when needed.
-- **Bots**: switchable profiles (General, Coding, System Design, Behavioral, Recruiter Screen, Sales), each with an editable system prompt and context. Drop a resume or job description (PDF, Word, TXT, Markdown) into a bot's context.
-- **System design framework**: the System Design bot follows Requirements → Core Entities → API → Data Flow → High-Level Design → Deep Dives.
+- **Bots**: switchable profiles (General, Sales, and the ones you make), each with an editable system prompt and context. Drop notes or documents (PDF, Word, TXT, Markdown) into a bot's context.
 - **Follow mode**: watches the screen and the conversation and only speaks up when you make a mistake, without reopening a hidden panel.
 - **Recording**: on-device transcription of your mic ("Me") and system audio ("Them"); the transcript is sent as context with every question. Optional auto-answer when the other side asks a question.
 - **Uses your ChatGPT subscription**: Sign in with ChatGPT (OAuth with PKCE, loopback redirect), streaming Responses API requests billed to your Plus/Pro plan. Copilot and Rewrite need it; Dictation works without it, and with it the text is cleaned up. The rest never asks.

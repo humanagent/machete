@@ -145,10 +145,12 @@ describe('sessions', () => {
       'Compensation Discussion with Fabricio',
     );
     expect(L.cleanTitle('Title: Padel Club Planning\nmore')).toBe('Padel Club Planning');
+    expect(L.cleanTitle('**Title:** Sales Call With Ana')).toBe('Sales Call With Ana');
     expect(L.cleanTitle('  ')).toBe('');
   });
   test('durations read like a list', () => {
     expect(L.durationLabel(42)).toBe('42s');
+    expect(L.durationLabel(59.7)).toBe('1m');
     expect(L.durationLabel(36 * 60)).toBe('36m');
     expect(L.durationLabel(69 * 60)).toBe('1h 9m');
   });

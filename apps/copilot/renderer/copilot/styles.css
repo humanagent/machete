@@ -184,6 +184,9 @@ button {
 .stack > :empty:not(#end) {
   display: none;
 }
+.stack.only-error > :not(#error) {
+  display: none;
+}
 #exchanges {
   display: flex;
   flex-direction: column;

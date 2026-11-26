@@ -34,7 +34,23 @@ export class SessionStore extends Context.Service<SessionStore, SessionStoreShap
       const indexFile = path.join(sessionsDir, 'index.json');
       // Ids are ours (UUIDs), but a file name never comes from anything else.
       const fileOf = (id: string) => path.join(sessionsDir, `${id.replace(/[^\w-]/g, '')}.json`);
-      const list = provide(readJson(Index, indexFile)).pipe(Effect.map(Option.getOrElse(() => [])));
+      /** The sessions from their own files, newest first: for when the index is missing or unreadable, so one bad
+       * index never hides the recordings it listed. */
+      const rebuild = provide(
+        Effect.gen(function* () {
+          const names = yield* fs.readDirectory(sessionsDir).pipe(Effect.orElseSucceed(() => []));
+          const found: Array<SessionSummary> = [];
+          for (const name of names) {
+            if (!name.endsWith('.json') || name === 'index.json') continue;
+            const s = yield* readJson(Session, path.join(sessionsDir, name));
+            if (Option.isSome(s)) found.push(summaryOf(s.value));
+          }
+          return found.sort((a, b) => b.startedAt - a.startedAt);
+        }),
+      );
+      const list = provide(readJson(Index, indexFile)).pipe(
+        Effect.flatMap(Option.match({ onNone: () => rebuild, onSome: Effect.succeed })),
+      );
       // Saving reads the index and writes it back: two at once (a recording saved while the last one is named)
       // would lose one.
       const oneAtATime = (yield* Semaphore.make(1)).withPermits(1);

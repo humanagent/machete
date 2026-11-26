@@ -285,7 +285,9 @@ const renderSession = (x: Session | null) => {
 };
 
 const renderPage = (s: CopilotState) => {
-  el.stack.hidden = s.page !== 'chat';
+  // Off the chat, the stack still shows an error, alone: a recording cut short must say so wherever you are.
+  el.stack.classList.toggle('only-error', s.page !== 'chat');
+  el.stack.hidden = s.page !== 'chat' && s.errorText == null;
   el.sessions.hidden = s.page !== 'sessions';
   el.sessionview.hidden = s.page !== 'session';
   if (s.page === 'sessions') renderSessions(s.sessions);

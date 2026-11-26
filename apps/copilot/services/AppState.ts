@@ -277,9 +277,14 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         readonly lines: ReadonlyArray<TranscriptLine>;
       }
       const recording = yield* Ref.make<Recording | null>(null);
-      /** Those stopped and not saved yet, oldest first. The last one takes the words that land after stopping. Each
-       * recording keeps its own: one started meanwhile never gets them, nor is saved in its place. */
+      /** Those stopped and not saved yet, oldest first. The last one takes the words that land after stopping, until
+       * a new recording starts: from then on, the new one gets them. Each is saved as itself, never in another's place. */
       const closing = yield* Ref.make<ReadonlyArray<Recording>>([]);
+      /** How long the last recording ran: stray words after it was saved go at its end, not at 0:00. */
+      const lastSeconds = yield* Ref.make(0);
+      /** Bumped by every move between pages, so a recording saved after the user moved on doesn't pull them back. */
+      const nav = yield* Ref.make(0);
+      const moved = Ref.update(nav, (n) => n + 1);
 
       const update = (f: (m: AppModel) => AppModel) => SubscriptionRef.update(state, f);
       const get = SubscriptionRef.get(state);
@@ -297,9 +302,10 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         );
       const patchExchange = (id: string, f: (e: Exchange) => Exchange) =>
         update((m) => ({ ...m, exchanges: m.exchanges.map((e) => (e.id === id ? f(e) : e)) }));
-      /** A Follow check replaced before it answered: nothing of it shows. */
-      const abandonedFollow = (e: Exchange) => e.isFollow && !e.done && e.answer == null;
-      const reveal = update((m) => ({ ...m, cardOpen: true, collapsed: false, page: 'chat' as const })).pipe(
+      /** A Follow check replaced before it finished: nothing of it shows, not even what it had streamed. */
+      const abandonedFollow = (e: Exchange) => e.isFollow && !e.done;
+      const reveal = moved.pipe(
+        Effect.andThen(update((m) => ({ ...m, cardOpen: true, collapsed: false, page: 'chat' as const }))),
         Effect.andThen(showPanel('ask')),
       );
 
@@ -448,6 +454,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
 
       const reset = Effect.gen(function* () {
         yield* FiberHandle.clear(askFiber);
+        yield* moved;
         yield* update((s) => ({
           ...s,
           followBusy: false,
@@ -490,6 +497,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         const seconds = Logic.recordedSeconds(yield* get, Date.now());
         const stopped = yield* Ref.getAndSet(recording, null);
         if (stopped) yield* Ref.update(closing, (list) => [...list, { ...stopped, seconds }]);
+        if (stopped) yield* Ref.set(lastSeconds, seconds);
         yield* update((s) => ({
           ...s,
           listenStart: null,
@@ -501,13 +509,14 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           ...(was ? { cardOpen: true, collapsed: false } : {}),
         }));
         if (!was) return;
+        const navAtStop = yield* Ref.get(nav);
         yield* showPanel('recording ended');
         yield* helper.stopListening.pipe(
           Effect.timeout(STOP_WAIT),
           Effect.tapError(() => Effect.logWarning('listen: the helper is slow to stop; saving what came')),
           Effect.ignore,
           Effect.andThen(Effect.sleep(LAST_WORDS)),
-          Effect.andThen(stopped ? saveRecording(stopped.id) : Effect.void),
+          Effect.andThen(stopped ? saveRecording(stopped.id, navAtStop) : Effect.void),
           Effect.forkDetach,
         );
       });
@@ -539,8 +548,9 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           }));
         }).pipe(Effect.catchCause((c) => Effect.logWarning(`sessions: left untitled (${Cause.pretty(c)})`)));
 
-      /** Keeps what was just recorded as a session and opens it. Nothing said, nothing kept. */
-      const saveRecording = (id: string) =>
+      /** Keeps what was just recorded as a session and opens it, if the user is still where stopping left them.
+       * Nothing said, nothing kept. */
+      const saveRecording = (id: string, navAtStop: number) =>
         Effect.gen(function* () {
           const r = yield* Ref.modify(closing, (list) => [
             list.find((c) => c.id === id),
@@ -561,11 +571,12 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
             Effect.option,
           );
           if (Option.isNone(index)) return;
+          const stayed = (yield* Ref.get(nav)) === navAtStop;
+          if (stayed) yield* moved;
           yield* update((s) => ({
             ...s,
             sessions: index.value,
-            // Open it, unless something else was opened meanwhile.
-            ...(s.isListening || s.page === 'session' ? {} : { page: 'session' as const, session }),
+            ...(stayed && !s.isListening ? { page: 'session' as const, session } : {}),
           }));
           yield* nameSession(session);
         });
@@ -574,6 +585,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         Effect.gen(function* () {
           const found = yield* sessionStore.get(id);
           if (Option.isNone(found)) return yield* Effect.logWarning(`sessions: ${id} is gone`);
+          yield* moved;
           yield* update((s) => ({
             ...s,
             page: 'session',
@@ -633,7 +645,9 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
             speaker,
             text,
             // Words that land after stopping belong at its end, not at 0:00.
-            offset: m.isListening ? Logic.recordedSeconds(m, now) : (late?.seconds ?? 0),
+            offset: m.isListening
+              ? Logic.recordedSeconds(m, now)
+              : (late?.seconds ?? (yield* Ref.get(lastSeconds))),
           };
           yield* update((s) => ({ ...s, lines: [...s.lines, line].slice(-MAX_LINES) }));
           if (live) yield* Ref.set(recording, { ...live, lines: [...live.lines, line] });
@@ -862,12 +876,16 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
       // MARK: Panel
 
       /** Back: from a recording to the list, from the list to the chat, from the chat to just the bar. */
-      const collapseToggle = update((s): AppModel => {
-        if (!Logic.cardVisible(s)) return { ...s, collapsed: false, cardOpen: true, unseenFollow: 0 };
-        if (s.page === 'session') return { ...s, page: 'sessions', session: null };
-        if (s.page === 'sessions') return { ...s, page: 'chat' };
-        return { ...s, collapsed: true };
-      });
+      const collapseToggle = moved.pipe(
+        Effect.andThen(
+          update((s): AppModel => {
+            if (!Logic.cardVisible(s)) return { ...s, collapsed: false, cardOpen: true, unseenFollow: 0 };
+            if (s.page === 'session') return { ...s, page: 'sessions', session: null };
+            if (s.page === 'sessions') return { ...s, page: 'chat' };
+            return { ...s, collapsed: true };
+          }),
+        ),
+      );
 
       return {
         model: get,
@@ -879,13 +897,11 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         openPanel: reveal,
         showError: (message) => update((s) => ({ ...s, errorText: message })).pipe(Effect.andThen(reveal)),
         collapseToggle,
-        showSessions: update((s) => ({
-          ...s,
-          page: 'sessions',
-          session: null,
-          cardOpen: true,
-          collapsed: false,
-        })),
+        showSessions: moved.pipe(
+          Effect.andThen(
+            update((s) => ({ ...s, page: 'sessions', session: null, cardOpen: true, collapsed: false })),
+          ),
+        ),
         openSession,
         focusInput: update((s) => ({ ...s, collapsed: false, focusInputTick: s.focusInputTick + 1 })),
         setCardSize: (width, height, save) =>

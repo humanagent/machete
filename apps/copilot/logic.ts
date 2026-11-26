@@ -8,7 +8,6 @@ export const speakerLabel = (s: Speaker): 'Me' | 'Them' => (s === 'me' ? 'Me' : 
 
 const TAG_EDGES = /^[\s*`.[\]<>]+|[\s*`.[\]<>]+$/g;
 
-/** Follow mode's "nothing to say" tag, only when it stands on a line of its own. */
 /** Whether a Follow answer still on its way can be shown: far enough in that it isn't going to be just SILENT. */
 export const showsWhileStreaming = (partial: string): boolean => {
   const t = partial
@@ -18,6 +17,7 @@ export const showsWhileStreaming = (partial: string): boolean => {
   return t.length > 8 && !t.startsWith('SILENT') && !t.startsWith('NOTHING');
 };
 
+/** Follow mode's "nothing to say" tag, only when it stands on a line of its own. */
 export const isSilent = (text: string): boolean =>
   text.split('\n').some((line) => {
     const t = line.replace(TAG_EDGES, '').toUpperCase();
@@ -126,7 +126,7 @@ export const cardVisible = (s: {
 /** A model's title, cleaned: one line, no quotes or trailing period, at most 80 characters. */
 export const cleanTitle = (raw: string): string =>
   (raw.trim().split('\n')[0] ?? '')
-    .replace(/^(title:\s*)/i, '')
+    .replace(/^["'“”‘’*#\s]*title:[*\s]*/i, '')
     .replace(/^["'“”‘’*#\s]+|["'“”‘’*.\s]+$/g, '')
     .slice(0, 80);
 
@@ -145,7 +145,8 @@ export const timeLabel = (ms: number): string =>
 
 /** "45s", "36m", "1h 9m" */
 export const durationLabel = (secs: number): string => {
-  if (secs < 60) return `${Math.max(0, Math.round(secs))}s`;
-  const m = Math.round(secs / 60);
+  const s = Math.max(0, Math.round(secs));
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
   return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
 };

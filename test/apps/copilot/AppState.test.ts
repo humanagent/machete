@@ -276,6 +276,44 @@ describe('listening, auto-answer and Follow', () => {
     expect(result).toEqual([['Second.'], ['First.']]);
   });
 
+  test('a recording saved after the user moved on leaves them where they are', async () => {
+    const result = await harness(({ app, helper }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleListening;
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'Something.' });
+        yield* waitFor(app, (x) => x.lines.length === 1);
+        yield* app.toggleListening;
+        yield* app.setQuestion('What now?');
+        yield* app.ask(); // right after stopping, before it's saved
+        return yield* waitFor(app, (x) => x.sessions.length === 1 && x.exchanges.at(-1)?.done === true);
+      }),
+    );
+    expect(result.page).toBe('chat');
+    expect(result.session).toBeNull();
+  });
+
+  test('a Follow answer cut off mid-stream leaves nothing behind', async () => {
+    const result = await harness(({ app, answerer, helper }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleFollow;
+        yield* waitFor(app, (x) => x.followMode && !x.followBusy && x.isListening);
+        yield* Ref.set(answerer, (request) =>
+          request.onText('Four plus four is').pipe(Effect.andThen(Effect.never)),
+        );
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'Cuánto es 4 + 4' });
+        yield* waitFor(app, (x) => x.exchanges.some((e) => e.isFollow && e.answer != null));
+        yield* Ref.set(answerer, streaming('Mine.'));
+        yield* app.setQuestion('Mine?');
+        yield* app.ask();
+        return yield* waitFor(app, (x) => x.exchanges.at(-1)?.done === true);
+      }),
+    );
+    // The check Follow made on turning on finished; the cut-off one is gone.
+    expect(result.exchanges.map((e) => e.answer)).toEqual(['Hello there', 'Mine.']);
+  });
+
   test('Follow answers a question as soon as it is heard, with Thinking… while it does', async () => {
     const result = await harness(({ app, answerer, helper, asks }) =>
       Effect.gen(function* () {

@@ -17,7 +17,17 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Language, Model, Speaker } from '../../../core/domain';
-import type { BotsState, Exchange, CopilotState, Profile, ProfileFields, TranscriptLine } from '../domain';
+import type {
+  BotsState,
+  Exchange,
+  CopilotState,
+  Page,
+  Profile,
+  ProfileFields,
+  Session,
+  SessionSummary,
+  TranscriptLine,
+} from '../domain';
 import * as Logic from '../logic';
 import { type PresetKey, Strings } from '../strings';
 import { ChatGptError, HelperError, TimeoutError } from '../../../core/errors';
@@ -26,6 +36,7 @@ import { ChatGpt } from '../../../core/services/ChatGpt';
 import { appendBlock, ContextFiles } from './ContextFiles';
 import { NativeHelper } from '../../../core/services/NativeHelper';
 import { newProfileID, ProfileStore } from './ProfileStore';
+import { SessionStore } from './SessionStore';
 import { Settings } from '../../../core/services/Settings';
 
 const CAPTURE_TIMEOUT =
@@ -38,6 +49,12 @@ const FOLLOW_EVERY = Duration.seconds(3);
 const FOLLOW_MIN_GAP_MS = 20_000;
 const FOLLOW_SCREEN_CHANGE = 12;
 const AUTO_ANSWER_DELAY = Duration.millis(1200);
+/** The last words reach us as events after the helper says it stopped; this lets them land before saving. */
+const LAST_WORDS = Duration.millis(300);
+/** How long a stopped recording waits for the helper before it is saved anyway: a stuck recognizer can take a minute. */
+const STOP_WAIT = Duration.seconds(3);
+/** The beginning of a recording is enough to name it. */
+const TITLE_LINES = 120;
 
 /** The whole app state. `CopilotState` and `BotsState` are views of it. */
 export interface AppModel {
@@ -50,7 +67,9 @@ export interface AppModel {
   readonly isPaused: boolean;
   readonly listenStart: number | null;
   readonly recordedBefore: number;
-  readonly showTranscript: boolean;
+  readonly page: Page;
+  readonly sessions: ReadonlyArray<SessionSummary>;
+  readonly session: Session | null;
   readonly lines: ReadonlyArray<TranscriptLine>;
   readonly partialMe: string;
   readonly partialThem: string;
@@ -94,7 +113,9 @@ export const copilotState = (m: AppModel): CopilotState => ({
   isPaused: m.isPaused,
   listenStart: m.listenStart,
   recordedBefore: m.recordedBefore,
-  showTranscript: m.showTranscript,
+  page: m.page,
+  sessions: m.sessions,
+  session: m.session,
   lines: m.lines,
   partialMe: m.partialMe,
   partialThem: m.partialThem,
@@ -155,7 +176,10 @@ export interface AppStateShape {
   /** Shows a message in the panel, opening it. */
   readonly showError: (message: string) => Effect.Effect<void>;
   readonly collapseToggle: Effect.Effect<void>;
-  readonly toggleTranscript: Effect.Effect<void>;
+  /** The list of recordings. */
+  readonly showSessions: Effect.Effect<void>;
+  /** One recording, with its whole transcript. */
+  readonly openSession: (id: string) => Effect.Effect<void>;
   readonly focusInput: Effect.Effect<void>;
   readonly setCardSize: (width: number, height: number, persist: boolean) => Effect.Effect<void>;
   readonly setCardHeight: (height: number, persist: boolean) => Effect.Effect<void>;
@@ -189,6 +213,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
     Effect.gen(function* () {
       const settings = yield* Settings;
       const store = yield* ProfileStore;
+      const sessionStore = yield* SessionStore;
       const auth = yield* Auth;
       const chat = yield* ChatGpt;
       const helper = yield* NativeHelper;
@@ -196,6 +221,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
 
       const saved = yield* settings.get;
       const profiles = yield* store.load;
+      const sessions = yield* sessionStore.list;
       const state = yield* SubscriptionRef.make<AppModel>({
         question: '',
         exchanges: [],
@@ -206,7 +232,9 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         isPaused: false,
         listenStart: null,
         recordedBefore: 0,
-        showTranscript: false,
+        page: 'chat',
+        sessions,
+        session: null,
         lines: [],
         partialMe: '',
         partialThem: '',
@@ -240,6 +268,23 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         at: 0,
         lastLine: undefined as string | undefined,
       });
+      /** The recording under way: what becomes a session when it stops. Lines also go to `lines`, which New chat
+       * clears and earlier recordings share. */
+      interface Recording {
+        readonly id: string;
+        readonly startedAt: number;
+        readonly seconds: number;
+        readonly lines: ReadonlyArray<TranscriptLine>;
+      }
+      const recording = yield* Ref.make<Recording | null>(null);
+      /** Those stopped and not saved yet, oldest first. The last one takes the words that land after stopping, until
+       * a new recording starts: from then on, the new one gets them. Each is saved as itself, never in another's place. */
+      const closing = yield* Ref.make<ReadonlyArray<Recording>>([]);
+      /** How long the last recording ran: stray words after it was saved go at its end, not at 0:00. */
+      const lastSeconds = yield* Ref.make(0);
+      /** Bumped by every move between pages, so a recording saved after the user moved on doesn't pull them back. */
+      const nav = yield* Ref.make(0);
+      const moved = Ref.update(nav, (n) => n + 1);
 
       const update = (f: (m: AppModel) => AppModel) => SubscriptionRef.update(state, f);
       const get = SubscriptionRef.get(state);
@@ -257,9 +302,10 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         );
       const patchExchange = (id: string, f: (e: Exchange) => Exchange) =>
         update((m) => ({ ...m, exchanges: m.exchanges.map((e) => (e.id === id ? f(e) : e)) }));
-      /** A Follow check replaced before it answered: nothing of it shows. */
-      const abandonedFollow = (e: Exchange) => e.isFollow && !e.done && e.answer == null;
-      const reveal = update((m) => ({ ...m, cardOpen: true, collapsed: false })).pipe(
+      /** A Follow check replaced before it finished: nothing of it shows, not even what it had streamed. */
+      const abandonedFollow = (e: Exchange) => e.isFollow && !e.done;
+      const reveal = moved.pipe(
+        Effect.andThen(update((m) => ({ ...m, cardOpen: true, collapsed: false, page: 'chat' as const }))),
         Effect.andThen(showPanel('ask')),
       );
 
@@ -271,6 +317,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         readonly isPreset: boolean;
         readonly isFollow: boolean;
         readonly reveal: boolean;
+        /** Shows Thinking… while it works, even for Follow (a question was heard). */
+        readonly thinking?: boolean;
       }
 
       /** One request: screenshot + prompt to ChatGPT, streamed into a new exchange. Replaces any running ask. */
@@ -300,7 +348,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           yield* update((s) => ({
             ...s,
             errorText: null,
-            isThinking: !r.isFollow,
+            isThinking: !r.isFollow || r.thinking === true,
             followBusy: r.isFollow,
             status: 'Capturing screen…',
             exchanges: [...s.exchanges.filter((e) => !abandonedFollow(e)), exchange].slice(-MAX_EXCHANGES),
@@ -322,8 +370,11 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
                 text: prompt,
                 imageDataURL: image,
                 effort: 'low',
+                // Follow shows its answer as it comes too, once it's clearly not going to be SILENT.
                 onText: (partial) =>
-                  r.isFollow ? Effect.void : patchExchange(exchange.id, (e) => ({ ...e, answer: partial })),
+                  r.isFollow && !Logic.showsWhileStreaming(partial)
+                    ? Effect.void
+                    : patchExchange(exchange.id, (e) => ({ ...e, answer: partial })),
               })
               .pipe(
                 Effect.timeoutOrElse({
@@ -334,7 +385,11 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
             const trimmed = answer.trim();
             if (r.isFollow && (trimmed === '' || Logic.isSilent(trimmed))) {
               // Nothing wrong: show nothing.
-              yield* update((s) => ({ ...s, exchanges: s.exchanges.filter((e) => e.id !== exchange.id) }));
+              yield* update((s) => ({
+                ...s,
+                exchanges: s.exchanges.filter((e) => e.id !== exchange.id),
+                isThinking: false,
+              }));
               yield* Effect.logInfo('follow: silent');
               return;
             }
@@ -399,6 +454,7 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
 
       const reset = Effect.gen(function* () {
         yield* FiberHandle.clear(askFiber);
+        yield* moved;
         yield* update((s) => ({
           ...s,
           followBusy: false,
@@ -407,6 +463,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           errorText: null,
           cardOpen: false,
           collapsed: false,
+          page: 'chat',
+          session: null,
           lines: [],
           partialMe: '',
           partialThem: '',
@@ -423,8 +481,8 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           isPaused: false,
           recordedBefore: 0,
           listenStart: Date.now(),
-          showTranscript: false,
         }));
+        yield* Ref.set(recording, { id: randomUUID(), startedAt: Date.now(), seconds: 0, lines: [] });
         yield* helper.startListening((yield* get).language).pipe(
           Effect.catch((e) =>
             update((s) => ({ ...s, errorText: e.message })).pipe(Effect.andThen(stopListening)),
@@ -436,6 +494,10 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
       const stopListening: Effect.Effect<void> = Effect.gen(function* () {
         const was = (yield* get).isListening;
         yield* FiberHandle.clear(autoFiber);
+        const seconds = Logic.recordedSeconds(yield* get, Date.now());
+        const stopped = yield* Ref.getAndSet(recording, null);
+        if (stopped) yield* Ref.update(closing, (list) => [...list, { ...stopped, seconds }]);
+        if (stopped) yield* Ref.set(lastSeconds, seconds);
         yield* update((s) => ({
           ...s,
           listenStart: null,
@@ -444,17 +506,94 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           isListening: false,
           partialMe: '',
           partialThem: '',
-          // Show the full transcript once recording stops.
-          ...(was ? { showTranscript: true, cardOpen: true, collapsed: false } : {}),
+          ...(was ? { cardOpen: true, collapsed: false } : {}),
         }));
         if (!was) return;
+        const navAtStop = yield* Ref.get(nav);
         yield* showPanel('recording ended');
         yield* helper.stopListening.pipe(
-          Effect.andThen(get),
-          Effect.flatMap((s) => Effect.logInfo(`listen: stopped, ${s.lines.length} lines total`)),
+          Effect.timeout(STOP_WAIT),
+          Effect.tapError(() => Effect.logWarning('listen: the helper is slow to stop; saving what came')),
+          Effect.ignore,
+          Effect.andThen(Effect.sleep(LAST_WORDS)),
+          Effect.andThen(stopped ? saveRecording(stopped.id, navAtStop) : Effect.void),
           Effect.forkDetach,
         );
       });
+
+      /** Names a saved session from its beginning, in the background. Signed out or failing, it stays untitled. */
+      const nameSession = (session: Session) =>
+        Effect.gen(function* () {
+          const m = yield* get;
+          const said = session.lines
+            .slice(0, TITLE_LINES)
+            .map((l) => `${Logic.speakerLabel(l.speaker)}: ${l.text}`)
+            .join('\n');
+          const reply = yield* chat.ask({
+            model: m.model,
+            instructions: Strings.sessionTitleInstructions,
+            text: `<transcript>\n${said}\n</transcript>`,
+            effort: 'low',
+            onText: () => Effect.void,
+          });
+          const title = Logic.cleanTitle(reply);
+          if (title === '') return;
+          const stored = yield* sessionStore.get(session.id);
+          if (Option.isNone(stored)) return;
+          const index = yield* sessionStore.save({ ...stored.value, title });
+          yield* update((s) => ({
+            ...s,
+            sessions: index,
+            session: s.session?.id === session.id ? { ...s.session, title } : s.session,
+          }));
+        }).pipe(Effect.catchCause((c) => Effect.logWarning(`sessions: left untitled (${Cause.pretty(c)})`)));
+
+      /** Keeps what was just recorded as a session and opens it, if the user is still where stopping left them.
+       * Nothing said, nothing kept. */
+      const saveRecording = (id: string, navAtStop: number) =>
+        Effect.gen(function* () {
+          const r = yield* Ref.modify(closing, (list) => [
+            list.find((c) => c.id === id),
+            list.filter((c) => c.id !== id),
+          ]);
+          if (!r) return;
+          yield* Effect.logInfo(`listen: stopped, ${r.lines.length} lines`);
+          if (r.lines.length === 0) return;
+          const session: Session = {
+            id: r.id,
+            title: '',
+            startedAt: r.startedAt,
+            seconds: r.seconds,
+            lines: r.lines,
+          };
+          const index = yield* sessionStore.save(session).pipe(
+            Effect.tapError((e) => Effect.logError(e.message)),
+            Effect.option,
+          );
+          if (Option.isNone(index)) return;
+          const stayed = (yield* Ref.get(nav)) === navAtStop;
+          if (stayed) yield* moved;
+          yield* update((s) => ({
+            ...s,
+            sessions: index.value,
+            ...(stayed && !s.isListening ? { page: 'session' as const, session } : {}),
+          }));
+          yield* nameSession(session);
+        });
+
+      const openSession = (id: string) =>
+        Effect.gen(function* () {
+          const found = yield* sessionStore.get(id);
+          if (Option.isNone(found)) return yield* Effect.logWarning(`sessions: ${id} is gone`);
+          yield* moved;
+          yield* update((s) => ({
+            ...s,
+            page: 'session',
+            session: found.value,
+            cardOpen: true,
+            collapsed: false,
+          }));
+        });
 
       const toggleListening = get.pipe(
         Effect.flatMap((m) => (m.isListening ? stopListening : startListening)),
@@ -498,18 +637,29 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
       const onCommit = (speaker: Speaker, text: string) =>
         Effect.gen(function* () {
           const now = Date.now();
-          yield* update((s) => {
-            const line: TranscriptLine = {
-              id: randomUUID(),
-              speaker,
-              text,
-              offset: Logic.recordedSeconds(s, now),
-            };
-            return { ...s, lines: [...s.lines, line].slice(-MAX_LINES) };
-          });
+          const m = yield* get;
+          const live = yield* Ref.get(recording);
+          const late = live ? undefined : (yield* Ref.get(closing)).at(-1);
+          const line: TranscriptLine = {
+            id: randomUUID(),
+            speaker,
+            text,
+            // Words that land after stopping belong at its end, not at 0:00.
+            offset: m.isListening
+              ? Logic.recordedSeconds(m, now)
+              : (late?.seconds ?? (yield* Ref.get(lastSeconds))),
+          };
+          yield* update((s) => ({ ...s, lines: [...s.lines, line].slice(-MAX_LINES) }));
+          if (live) yield* Ref.set(recording, { ...live, lines: [...live.lines, line] });
+          else if (late)
+            yield* Ref.update(closing, (list) =>
+              list.map((c) => (c.id === late.id ? { ...c, lines: [...c.lines, line] } : c)),
+            );
           yield* Effect.logInfo(`transcript: +1 line (${Logic.speakerLabel(speaker)})`);
           // When I start talking, don't interrupt with an automatic answer.
           yield* speaker === 'them' ? scheduleAutoAnswer : FiberHandle.clear(autoFiber);
+          // Follow answers questions too, mine included, as soon as they're heard.
+          if (m.followMode && Logic.looksLikeQuestion(text)) yield* followQuestion;
         });
 
       const helperEvents = yield* helper.subscribe;
@@ -563,13 +713,26 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
           lastLine: m.lines.at(-1)?.id,
         });
         yield* Effect.logInfo(`follow: tick screenChanged=${screenChanged} newSpeech=${newSpeech}`);
-        yield* startRun({
+        yield* followRun(false);
+      });
+
+      const followRun = (thinking: boolean) =>
+        startRun({
           label: 'Follow',
           instruction: Strings.followInstruction,
           isPreset: false,
           isFollow: true,
           reveal: false,
+          thinking,
         });
+
+      /** A question heard in Follow is taken now, not at the next tick, replacing a quiet check under way. */
+      const followQuestion = Effect.gen(function* () {
+        const m = yield* get;
+        if (!m.followMode || m.isThinking) return;
+        yield* Ref.update(followMemory, (f) => ({ ...f, at: Date.now(), lastLine: m.lines.at(-1)?.id }));
+        yield* Effect.logInfo('follow: question heard');
+        yield* followRun(true);
       });
 
       const setFollow = (on: boolean): Effect.Effect<void> =>
@@ -712,10 +875,16 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
 
       // MARK: Panel
 
-      const collapseToggle = update((s) =>
-        Logic.cardVisible(s)
-          ? { ...s, collapsed: true, showTranscript: false }
-          : { ...s, collapsed: false, cardOpen: true, unseenFollow: 0 },
+      /** Back: from a recording to the list, from the list to the chat, from the chat to just the bar. */
+      const collapseToggle = moved.pipe(
+        Effect.andThen(
+          update((s): AppModel => {
+            if (!Logic.cardVisible(s)) return { ...s, collapsed: false, cardOpen: true, unseenFollow: 0 };
+            if (s.page === 'session') return { ...s, page: 'sessions', session: null };
+            if (s.page === 'sessions') return { ...s, page: 'chat' };
+            return { ...s, collapsed: true };
+          }),
+        ),
       );
 
       return {
@@ -728,7 +897,12 @@ export class AppState extends Context.Service<AppState, AppStateShape>()('machet
         openPanel: reveal,
         showError: (message) => update((s) => ({ ...s, errorText: message })).pipe(Effect.andThen(reveal)),
         collapseToggle,
-        toggleTranscript: update((s) => ({ ...s, showTranscript: !s.showTranscript })),
+        showSessions: moved.pipe(
+          Effect.andThen(
+            update((s) => ({ ...s, page: 'sessions', session: null, cardOpen: true, collapsed: false })),
+          ),
+        ),
+        openSession,
         focusInput: update((s) => ({ ...s, collapsed: false, focusInputTick: s.focusInputTick + 1 })),
         setCardSize: (width, height, save) =>
           Effect.gen(function* () {

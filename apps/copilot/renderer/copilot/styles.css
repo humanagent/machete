@@ -86,19 +86,6 @@ button {
   padding: 0;
   -webkit-app-region: no-drag;
 }
-.go {
-  flex: none;
-  min-width: 44px;
-  height: 34px;
-  padding: 0 13px;
-  border-radius: 17px;
-  background: var(--accent);
-  font-size: 13px;
-  font-weight: 550;
-}
-.go:hover {
-  background: var(--accent-hover);
-}
 .iconbtn {
   flex: none;
   width: 34px;
@@ -112,6 +99,14 @@ button {
 .iconbtn:hover {
   background: var(--fill-hover);
   color: var(--text);
+}
+#follow.busy i {
+  animation: follow-busy 1.1s ease-in-out infinite;
+}
+@keyframes follow-busy {
+  50% {
+    opacity: 0.35;
+  }
 }
 .iconbtn.active,
 .iconbtn.active:hover {
@@ -187,6 +182,9 @@ button {
   gap: 18px;
 }
 .stack > :empty:not(#end) {
+  display: none;
+}
+.stack.only-error > :not(#error) {
   display: none;
 }
 #exchanges {
@@ -398,6 +396,102 @@ button {
 }
 .trow.partial .txt {
   color: var(--text-dim);
+}
+
+/* Sessions: every recording, and one of them open */
+.sessions {
+  /* Rows reach 12px from the edge so their hover can breathe; their text lines up with the chat's 22px. */
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sday {
+  padding: 14px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.sday:first-child {
+  padding-top: 0;
+}
+.srow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  text-align: left;
+}
+.srow:hover {
+  background: var(--fill);
+}
+.sicon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--fill);
+  display: grid;
+  place-items: center;
+  color: var(--text-soft);
+}
+.srow .stitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.srow .stitle.untitled {
+  color: var(--text-soft);
+}
+.sdur {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+.srow time {
+  flex: none;
+  min-width: 62px;
+  text-align: right;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.session {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  user-select: text;
+}
+.stitle-big {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 12.5px;
+  color: var(--text-soft);
 }
 
 /* Footer */

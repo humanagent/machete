@@ -14,7 +14,7 @@ import {
   Stream,
 } from 'effect';
 import { Channels } from '../../../core/ipc';
-import type { TranscriptLine } from '../domain';
+import type { Session, TranscriptLine } from '../domain';
 import { CopilotCommand, type CopilotKeys, type PanelUpdate } from '../ipc';
 import { AppState, panelState, sameState } from '../services/AppState';
 import { Clipboard } from '../../../core/electron/Platform';
@@ -139,7 +139,8 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
           Collapse: () => app.collapseToggle,
           ToggleFollow: () => app.toggleFollow,
           ToggleListening: () => app.toggleListening,
-          ToggleTranscript: () => app.toggleTranscript,
+          ShowSessions: () => app.showSessions,
+          OpenSession: ({ id }) => app.openSession(id),
           Reset: () => app.reset,
           Login: () => app.login,
           SetCardHeight: ({ height, persist }) => app.setCardHeight(height, persist),
@@ -168,13 +169,19 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
       const draw = (win: BrowserWindow) =>
         Effect.suspend(() => {
           let sent: ReadonlyArray<TranscriptLine> | undefined;
+          let sentSession: Session | null | undefined;
           return states.pipe(
             Stream.buffer({ capacity: 1, strategy: 'sliding' }),
-            Stream.runForEach(({ lines, ...rest }) =>
+            Stream.runForEach(({ lines, session, ...rest }) =>
               Effect.sync(() => {
                 if (win.isDestroyed()) return;
-                const update: PanelUpdate = lines === sent ? rest : { ...rest, lines };
+                const update: PanelUpdate = {
+                  ...rest,
+                  ...(lines === sent ? {} : { lines }),
+                  ...(session === sentSession ? {} : { session }),
+                };
                 sent = lines;
+                sentSession = session;
                 win.webContents.send(Channels.copilotState, update);
                 if (win.isResizable() !== rest.cardVisible) win.setResizable(rest.cardVisible);
               }).pipe(Effect.andThen(Effect.sleep(FRAME))),
@@ -188,7 +195,6 @@ export class CopilotWindow extends Context.Service<CopilotWindow, CopilotWindowS
             Effect.sync(() => {
               const first = (id: HotkeyID) => (keys.get(id) ?? []).slice(0, 1).map(label).join('');
               const shown: CopilotKeys = {
-                ask: first('copilot.ask'),
                 listen: first('copilot.listen'),
                 reset: first('copilot.new'),
               };

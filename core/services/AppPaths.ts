@@ -12,6 +12,8 @@ export interface AppPathsShape {
   readonly snippetsFile: string;
   readonly calculatorFile: string;
   readonly screenshotFile: string;
+  /** Each recording, one file per session, plus `index.json` listing them. */
+  readonly sessionsDir: string;
   readonly logFile: string;
   /** Chromium's own data, kept apart from the app's files. */
   readonly chromiumDir: string;
@@ -30,6 +32,7 @@ export class AppPaths extends Context.Service<AppPaths, AppPathsShape>()('machet
     snippetsFile: join(supportDir, 'snippets.json'),
     calculatorFile: join(supportDir, 'calculator.json'),
     screenshotFile: join(supportDir, 'screenshot.json'),
+    sessionsDir: join(supportDir, 'sessions'),
     logFile,
     chromiumDir: join(supportDir, 'electron'),
   });

@@ -35,6 +35,7 @@ test('app paths live under the support folder', () => {
     snippetsFile: '/s/snippets.json',
     calculatorFile: '/s/calculator.json',
     screenshotFile: '/s/screenshot.json',
+    sessionsDir: '/s/sessions',
     logFile: '/l/Machete.log',
     chromiumDir: '/s/electron',
   });

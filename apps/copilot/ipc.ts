@@ -1,6 +1,6 @@
 // IPC contract of Copilot's panels: its own and the bots'.
 import { Schema } from 'effect';
-import { BotsState, type CopilotState, ProfileFields, type TranscriptLine } from './domain';
+import { BotsState, type CopilotState, ProfileFields, type Session, type TranscriptLine } from './domain';
 
 // MARK: Copilot
 
@@ -14,7 +14,8 @@ export const CopilotCommand = Schema.TaggedUnion({
   Collapse: {},
   ToggleFollow: {},
   ToggleListening: {},
-  ToggleTranscript: {},
+  ShowSessions: {},
+  OpenSession: { id: Schema.String },
   Reset: {},
   Login: {},
   SetCardHeight: { height: Schema.Number, persist: Schema.Boolean },
@@ -24,13 +25,15 @@ export const CopilotCommand = Schema.TaggedUnion({
 export type CopilotCommand = typeof CopilotCommand.Type;
 
 export interface CopilotKeys {
-  readonly ask: string;
   readonly listen: string;
   readonly reset: string;
 }
 
-/** A state on its way to the panel: the transcript, by far the largest part, only comes when it changed. */
-export type PanelUpdate = Omit<CopilotState, 'lines'> & { readonly lines?: ReadonlyArray<TranscriptLine> };
+/** A state on its way to the panel: the transcripts, by far the largest parts, only come when they changed. */
+export type PanelUpdate = Omit<CopilotState, 'lines' | 'session'> & {
+  readonly lines?: ReadonlyArray<TranscriptLine>;
+  readonly session?: Session | null;
+};
 
 /** What the copilot preload exposes as `window.machete`. */
 export interface CopilotBridge {

@@ -22,7 +22,6 @@
         </div>
         <div class="sep" id="recsep" hidden></div>
         <input class="input" id="input" type="text" spellcheck="false" autocomplete="off" aria-label="Ask" />
-        <button class="go" id="go" type="button" title="Ask about the screen">⌥ ↩</button>
         <button class="iconbtn" id="follow" type="button">
           <i class="i-binoculars" id="followIcon"></i>
         </button>
@@ -57,14 +56,15 @@
                 <span class="spinner"></span><span id="status">Thinking…</span>
               </div>
               <div class="error" id="error" hidden></div>
-              <div class="transcript" id="transcript" hidden></div>
               <div id="end"></div>
             </div>
+            <div class="sessions" id="sessions" hidden></div>
+            <div class="session" id="sessionview" hidden></div>
           </div>
           <div class="footer" id="footer">
             <div class="spacer"></div>
             <button class="plain tbtn" id="tbtn" type="button" hidden>
-              <i class="i-doc-text"></i>Transcript
+              <i class="i-doc-text"></i>Sessions
             </button>
             <button class="plain newchat" id="newchat" type="button" hidden>
               New Chat <span id="newkeys"></span>

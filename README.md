@@ -20,7 +20,7 @@ A suite of small Mac tools in one menu bar app, built with Electron; macOS today
 - **Plain-text answers**: short, direct text you can read at a glance, with code rendered as a code block when needed.
 - **Bots**: switchable profiles (General, Sales, and the ones you make), each with an editable system prompt and context. Drop notes or documents (PDF, Word, TXT, Markdown) into a bot's context.
 - **Follow mode**: watches the screen and the conversation and only speaks up when you make a mistake, without reopening a hidden panel.
-- **Recording**: on-device transcription of your mic ("Me") and system audio ("Them"); the transcript is sent as context with every question. Optional auto-answer when the other side asks a question.
+- **Recording**: on-device transcription of your mic ("Me") and system audio ("Them"); the transcript is sent as context with every question. Each recording is saved as its own session, named automatically; open any of them from Sessions to read the full transcript. Optional auto-answer when the other side asks a question.
 - **Uses your ChatGPT subscription**: Sign in with ChatGPT (OAuth with PKCE, loopback redirect), streaming Responses API requests billed to your Plus/Pro plan. Copilot and Rewrite need it; Dictation works without it, and with it the text is cleaned up. The rest never asks.
 - **Windows**: ⌃A, ⌃D and ⌃W put the focused window on the left half, the right half or the whole screen (needs Accessibility).
 - **Clipboard history**: ⇧⌘V lists the last 200 texts you copied; type to filter, ↩, ⌘1–9 or a double click copies it for your next ⌘V (it never pastes by itself), ⌥⌫ deletes. Text only; what password managers mark as concealed is never kept.
@@ -113,7 +113,7 @@ scripts/       build.ts (Bun.build; the windows come from the manifests), new-ap
 test/          bun test: core/, apps/<id>/, every app's manifest, the generator, the real helper and the bundle
 ```
 
-Data lives in `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`, `clipboard.json`, `snippets.json`, `calculator.json`; Chromium's data in `electron/`). Logs go to `~/Library/Logs/Machete.log` (diagnostics only, never audio or transcript text).
+Data lives in `~/Library/Application Support/Machete/` (`profiles.json`, `siwc.json`, `settings.json`, `clipboard.json`, `snippets.json`, `calculator.json`, recorded sessions in `sessions/`; Chromium's data in `electron/`). Logs go to `~/Library/Logs/Machete.log` (diagnostics only, never audio or transcript text).
 
 ## Windows (next)
 

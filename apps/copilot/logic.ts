@@ -9,16 +9,25 @@ export const speakerLabel = (s: Speaker): 'Me' | 'Them' => (s === 'me' ? 'Me' : 
 const TAG_EDGES = /^[\s*`.[\]<>]+|[\s*`.[\]<>]+$/g;
 
 /** Follow mode's "nothing to say" tag, only when it stands on a line of its own. */
+/** Whether a Follow answer still on its way can be shown: far enough in that it isn't going to be just SILENT. */
+export const showsWhileStreaming = (partial: string): boolean => {
+  const t = partial
+    .trim()
+    .replace(/^[^A-Za-z0-9]+/, '')
+    .toUpperCase();
+  return t.length > 8 && !t.startsWith('SILENT') && !t.startsWith('NOTHING');
+};
+
 export const isSilent = (text: string): boolean =>
   text.split('\n').some((line) => {
     const t = line.replace(TAG_EDGES, '').toUpperCase();
     return t === 'SILENT' || t === 'NOTHING';
   });
 
-/** Whether the other side just asked something: a question mark, or a sentence that starts like a question. */
+/** Whether someone just asked something: a question mark, or a sentence that starts like a question. */
 export const looksLikeQuestion = (text: string): boolean => {
   const t = text.toLowerCase().trim();
-  if (t.includes('?')) return true;
+  if (t.includes('?') || t.includes('¿')) return true;
   const parts = t.split(/[.!]/).filter((p) => p.length > 0);
   const last = (parts.at(-1) ?? t).replace(/^ +| +$/g, '');
   return Strings.questionStarters.some((starter) => last.startsWith(starter));
@@ -104,8 +113,7 @@ export const cardVisible = (s: {
   readonly isThinking: boolean;
   readonly exchanges: ReadonlyArray<unknown>;
   readonly errorText: string | null;
-  readonly showTranscript: boolean;
-  readonly isListening: boolean;
+  readonly page: 'chat' | 'sessions' | 'session';
 }): boolean =>
   !s.collapsed &&
   (s.cardOpen ||
@@ -113,4 +121,31 @@ export const cardVisible = (s: {
     s.isThinking ||
     s.exchanges.length > 0 ||
     s.errorText != null ||
-    (s.showTranscript && !s.isListening));
+    s.page !== 'chat');
+
+/** A model's title, cleaned: one line, no quotes or trailing period, at most 80 characters. */
+export const cleanTitle = (raw: string): string =>
+  (raw.trim().split('\n')[0] ?? '')
+    .replace(/^(title:\s*)/i, '')
+    .replace(/^["'“”‘’*#\s]+|["'“”‘’*.\s]+$/g, '')
+    .slice(0, 80);
+
+/** "Thu, Nov 26, 2026" */
+export const dayLabel = (ms: number): string =>
+  new Date(ms).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+/** "3:01 PM" */
+export const timeLabel = (ms: number): string =>
+  new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+/** "45s", "36m", "1h 9m" */
+export const durationLabel = (secs: number): string => {
+  if (secs < 60) return `${Math.max(0, Math.round(secs))}s`;
+  const m = Math.round(secs / 60);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+};

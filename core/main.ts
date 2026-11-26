@@ -40,6 +40,7 @@ import { ModifierTaps } from './services/ModifierTaps';
 import { NativeHelper } from './services/NativeHelper';
 import { PermissionsGuide } from './services/PermissionsGuide';
 import { ProfileStore } from '../apps/copilot/services/ProfileStore';
+import { SessionStore } from '../apps/copilot/services/SessionStore';
 import { Settings } from './services/Settings';
 
 const paths = AppPaths.system();
@@ -47,7 +48,7 @@ const PathsLive = Layer.succeed(AppPaths, paths);
 
 const Platform = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, PathsLive);
 
-const Storage = Layer.mergeAll(Settings.layer, ProfileStore.layer);
+const Storage = Layer.mergeAll(Settings.layer, ProfileStore.layer, SessionStore.layer);
 
 const Core = AppState.layer.pipe(
   Layer.provideMerge(

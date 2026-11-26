@@ -15,6 +15,7 @@ import { Auth } from '../../../core/services/Auth';
 import { type AskRequest, ChatGpt } from '../../../core/services/ChatGpt';
 import { ContextFiles } from '../../../apps/copilot/services/ContextFiles';
 import { ProfileStore } from '../../../apps/copilot/services/ProfileStore';
+import { SessionStore } from '../../../apps/copilot/services/SessionStore';
 import { Settings } from '../../../core/services/Settings';
 import { Strings } from '../../../apps/copilot/strings';
 import { fakeHelper, filesAt, withTempDir } from '../../support/fakes';
@@ -69,7 +70,9 @@ const harness = <A, E>(
         });
         const layer = AppState.layer.pipe(
           Layer.provide(ContextFiles.layer),
-          Layer.provide(Layer.mergeAll(chat, auth, helper.layer, Settings.layer, ProfileStore.layer)),
+          Layer.provide(
+            Layer.mergeAll(chat, auth, helper.layer, Settings.layer, ProfileStore.layer, SessionStore.layer),
+          ),
           Layer.provide(filesAt(dir)),
         );
         return yield* Effect.service(AppState).pipe(
@@ -206,28 +209,92 @@ describe('listening, auto-answer and Follow', () => {
     expect(s.lines.length).toBe(2);
   });
 
-  test('stopping shows the transcript; the helper dying stops with an explanation', async () => {
-    const result = await harness(({ app, helper }) =>
+  test('stopping keeps the recording as a session, opens it and names it; the helper dying stops with an explanation', async () => {
+    const result = await harness(({ app, answerer, helper }) =>
       Effect.gen(function* () {
+        yield* Ref.set(answerer, streaming('"Hiring Chat with Ana."'));
+        yield* app.setAutoAnswer(false);
         yield* app.toggleListening;
+        yield* helper.emit({ type: 'commit', speaker: 'them', text: 'Hi, I am Ana.' });
         yield* helper.emit({ type: 'partial', speaker: 'me', text: 'typing' });
         yield* waitFor(app, (x) => x.partialMe === 'typing');
         yield* app.toggleListening;
-        const stopped = copilotState(yield* app.model);
+        // The last words land after stopping, and still belong to it.
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'Nice to meet you.' });
+        const opened = yield* waitFor(app, (x) => x.page === 'session' && x.session?.title !== '');
+        yield* app.collapseToggle;
+        const list = copilotState(yield* app.model);
+        yield* app.collapseToggle;
+        const chat = copilotState(yield* app.model);
+        yield* app.openSession(list.sessions[0]?.id ?? '');
+        const reopened = copilotState(yield* app.model);
+        // A recording with nothing said leaves nothing behind.
+        yield* app.toggleListening;
+        yield* app.toggleListening;
+        yield* Effect.sleep('400 millis');
+        const afterEmpty = copilotState(yield* app.model);
         yield* app.toggleListening;
         yield* helper.emit({ type: 'exit' });
         const died = yield* waitFor(app, (x) => !x.isListening);
-        return { stopped, died, calls: helper.log.calls };
+        return { opened, list, chat, reopened, afterEmpty, died, calls: helper.log.calls };
       }),
     );
-    expect(result.stopped).toMatchObject({
-      isListening: false,
-      showTranscript: true,
-      partialMe: '',
-      cardVisible: true,
-    });
+    expect(result.opened).toMatchObject({ isListening: false, partialMe: '', cardVisible: true });
+    expect(result.opened.session?.title).toBe('Hiring Chat with Ana');
+    expect(result.opened.session?.lines.map((l) => l.text)).toEqual(['Hi, I am Ana.', 'Nice to meet you.']);
+    expect(result.list.page).toBe('sessions');
+    expect(result.list.sessions.map((x) => x.title)).toEqual(['Hiring Chat with Ana']);
+    expect(result.chat.page).toBe('chat');
+    expect(result.reopened.session?.lines.length).toBe(2);
+    expect(result.afterEmpty.sessions.length).toBe(1);
     expect(result.died.errorText).toContain('Transcription stopped unexpectedly');
-    expect(result.calls.filter((c) => c === 'listen.start').length).toBe(2);
+    expect(result.calls.filter((c) => c === 'listen.start').length).toBe(3);
+  });
+
+  test('recording again before the last one is saved keeps each in its own session', async () => {
+    const result = await harness(({ app, helper }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleListening;
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'First.' });
+        yield* waitFor(app, (x) => x.lines.length === 1);
+        yield* app.toggleListening;
+        yield* app.toggleListening; // again, while the first is still being saved
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'Second.' });
+        yield* waitFor(app, (x) => x.lines.length === 2);
+        yield* app.toggleListening;
+        const done = yield* waitFor(app, (x) => x.sessions.length === 2);
+        const said: Array<ReadonlyArray<string>> = [];
+        for (const x of done.sessions) {
+          yield* app.openSession(x.id);
+          said.push((copilotState(yield* app.model).session?.lines ?? []).map((l) => l.text));
+        }
+        return said;
+      }),
+    );
+    // Newest first.
+    expect(result).toEqual([['Second.'], ['First.']]);
+  });
+
+  test('Follow answers a question as soon as it is heard, with Thinking… while it does', async () => {
+    const result = await harness(({ app, answerer, helper, asks }) =>
+      Effect.gen(function* () {
+        yield* app.setAutoAnswer(false);
+        yield* app.toggleFollow;
+        yield* waitFor(app, (x) => x.followMode && !x.followBusy && x.isListening);
+        yield* Ref.set(answerer, (request) =>
+          Effect.sleep('100 millis').pipe(Effect.andThen(streaming('Four plus four is eight.')(request))),
+        );
+        const before = asks.length;
+        yield* helper.emit({ type: 'commit', speaker: 'me', text: 'Cuánto es 4 + 4' });
+        const thinking = yield* waitFor(app, (x) => x.isThinking);
+        const answered = yield* waitFor(app, (x) => !x.isThinking && x.exchanges.length > 0);
+        return { thinking, answered, asked: asks.length - before };
+      }),
+    );
+    expect(result.thinking.followBusy).toBe(true);
+    expect(result.asked).toBe(1);
+    expect(result.answered.exchanges.at(-1)?.answer).toBe('Four plus four is eight.');
   });
 
   test('Follow stays quiet on SILENT and speaks up otherwise, without opening the panel', async () => {

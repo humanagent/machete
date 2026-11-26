@@ -14,6 +14,8 @@ describe('isSilent', () => {
 describe('looksLikeQuestion', () => {
   test.each([
     ['How would you scale it?', true],
+    ['Cuánto es 4 + 4', true],
+    ['¿Me ayudás con esto', true],
     ['Tell me about a project you built', true],
     ['Thanks. Walk me through the design', true],
     ['Contame de algún proyecto', true],
@@ -113,8 +115,7 @@ describe('cardVisible', () => {
     isThinking: false,
     exchanges: [],
     errorText: null,
-    showTranscript: false,
-    isListening: false,
+    page: 'chat' as const,
   };
   test('closed by default, open for any reason to show something', () => {
     expect(L.cardVisible(base)).toBe(false);
@@ -122,8 +123,8 @@ describe('cardVisible', () => {
     expect(L.cardVisible({ ...base, loggedIn: false })).toBe(true);
     expect(L.cardVisible({ ...base, errorText: 'x' })).toBe(true);
     expect(L.cardVisible({ ...base, exchanges: [1] })).toBe(true);
-    expect(L.cardVisible({ ...base, showTranscript: true })).toBe(true);
-    expect(L.cardVisible({ ...base, showTranscript: true, isListening: true })).toBe(false);
+    expect(L.cardVisible({ ...base, page: 'sessions' })).toBe(true);
+    expect(L.cardVisible({ ...base, page: 'session' })).toBe(true);
   });
   test('collapsing wins', () =>
     expect(L.cardVisible({ ...base, cardOpen: true, collapsed: true })).toBe(false));
@@ -136,4 +137,27 @@ test('new speech is noticed at the cap and after New chat, and only once', () =>
   expect(L.newSpeech([{ id: 'x' }], '399')).toBe(true); // New chat: fewer lines than before
   expect(L.newSpeech([], '399')).toBe(false);
   expect(L.newSpeech([{ id: 'x' }], undefined)).toBe(true);
+});
+
+describe('sessions', () => {
+  test('a title is one clean line', () => {
+    expect(L.cleanTitle('"Compensation Discussion with Fabricio."')).toBe(
+      'Compensation Discussion with Fabricio',
+    );
+    expect(L.cleanTitle('Title: Padel Club Planning\nmore')).toBe('Padel Club Planning');
+    expect(L.cleanTitle('  ')).toBe('');
+  });
+  test('durations read like a list', () => {
+    expect(L.durationLabel(42)).toBe('42s');
+    expect(L.durationLabel(36 * 60)).toBe('36m');
+    expect(L.durationLabel(69 * 60)).toBe('1h 9m');
+  });
+});
+
+test('a Follow answer shows while streaming once it is clearly not SILENT', () => {
+  expect(L.showsWhileStreaming('SIL')).toBe(false);
+  expect(L.showsWhileStreaming('SILENT')).toBe(false);
+  expect(L.showsWhileStreaming('[SILENT] and')).toBe(false);
+  expect(L.showsWhileStreaming('It is')).toBe(false);
+  expect(L.showsWhileStreaming('Four plus four is eight')).toBe(true);
 });

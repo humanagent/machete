@@ -1,9 +1,9 @@
 // The copilot view. All state lives in the main process; this program renders each state it receives
 // and turns clicks and keys into commands.
 import { Effect, Stream } from 'effect';
-import type { Exchange, CopilotState, TranscriptLine } from '../../domain';
+import type { Exchange, CopilotState, Session, SessionSummary, TranscriptLine } from '../../domain';
 import type { CopilotBridge, CopilotCommand, CopilotKeys } from '../../ipc';
-import { clock, recordedSeconds, transcriptText } from '../../logic';
+import { clock, dayLabel, durationLabel, recordedSeconds, timeLabel, transcriptText } from '../../logic';
 import { escapeHTML, renderBody } from '../../markdown';
 import { ghost } from '../../../../core/renderer/ghost';
 import { byId, fromBridge, runMain } from '../../../../core/renderer/runtime';
@@ -31,7 +31,6 @@ const el = {
   recdot: byId('recdot'),
   rectime: byId('rectime'),
   input: byId<HTMLInputElement>('input'),
-  go: byId<HTMLButtonElement>('go'),
   follow: byId<HTMLButtonElement>('follow'),
   followIcon: byId('followIcon'),
   bots: byId<HTMLButtonElement>('bots'),
@@ -49,7 +48,10 @@ const el = {
   thinking: byId('thinking'),
   status: byId('status'),
   error: byId('error'),
-  transcript: byId('transcript'),
+  scroll: byId('scroll'),
+  stack: byId('stack'),
+  sessions: byId('sessions'),
+  sessionview: byId('sessionview'),
   tbtn: byId<HTMLButtonElement>('tbtn'),
   newchat: byId<HTMLButtonElement>('newchat'),
   newkeys: byId('newkeys'),
@@ -67,7 +69,9 @@ const view = {
   lastQuestion: '',
   lastExchange: undefined as string | undefined,
   clock: 0,
-  transcript: null as Pick<CopilotState, 'lines' | 'partialMe' | 'partialThem' | 'isListening'> | null,
+  page: 'chat' as CopilotState['page'],
+  drawnSessions: null as ReadonlyArray<SessionSummary> | null,
+  drawnSession: null as Session | null,
   lastThinking: false,
   lastFocusTick: 0,
   grip: null as { readonly y: number; readonly height: number } | null,
@@ -136,7 +140,15 @@ const tickWhile = (running: boolean) => {
 
 const renderBar = (s: CopilotState) => {
   el.backIcon.className = s.cardVisible ? 'i-arrow-left' : 'i-arrow-down';
-  el.back.title = s.cardVisible ? 'Collapse' : s.unseenFollow > 0 ? 'New Follow correction' : 'Show answers';
+  el.back.title = !s.cardVisible
+    ? s.unseenFollow > 0
+      ? 'New Follow correction'
+      : 'Show answers'
+    : s.page === 'session'
+      ? 'Back to sessions'
+      : s.page === 'sessions'
+        ? 'Back to chat'
+        : 'Collapse';
   el.unseen.hidden = s.cardVisible || s.unseenFollow === 0;
 
   el.rec.hidden = !s.isListening;
@@ -153,6 +165,8 @@ const renderBar = (s: CopilotState) => {
   view.lastQuestion = s.question;
 
   el.follow.classList.toggle('active', s.followMode);
+  // Follow is looking at the screen and conversation right now.
+  el.follow.classList.toggle('busy', s.followBusy);
   el.followIcon.className = s.followMode ? 'i-binoculars-fill' : 'i-binoculars';
   el.follow.title = s.followMode ? 'Follow is on (click to stop)' : 'Follow: flag my mistakes automatically';
   el.bots.title = `Bot: ${s.currentProfileName}`;
@@ -224,46 +238,62 @@ const transcriptRow = (time: string, speaker: 'me' | 'them', text: string, final
     speaker === 'me' ? 'ME' : 'THEM'
   }</div><div class="txt">${escapeHTML(text)}</div></div></div>`;
 
-const renderTranscript = (s: CopilotState) => {
-  const show = s.showTranscript && !s.isListening;
-  el.transcript.hidden = !show;
-  if (!show) {
-    if (view.transcript) el.transcript.innerHTML = '';
-    view.transcript = null;
+const UNTITLED = 'Untitled session';
+
+/** The recordings, newest first, under the day they were made. Drawn again only when the list changes. */
+const renderSessions = (list: ReadonlyArray<SessionSummary>) => {
+  if (view.drawnSessions === list) return;
+  view.drawnSessions = list;
+  if (list.length === 0) {
+    el.sessions.innerHTML =
+      '<div class="tempty">No recordings yet. Press record and each one shows up here with its transcript.</div>';
     return;
   }
-  const drawn = view.transcript;
-  if (
-    drawn &&
-    drawn.lines === s.lines &&
-    drawn.partialMe === s.partialMe &&
-    drawn.partialThem === s.partialThem &&
-    drawn.isListening === s.isListening
-  )
+  let html = '';
+  let day = '';
+  for (const x of list) {
+    const d = dayLabel(x.startedAt);
+    if (d !== day) {
+      day = d;
+      html += `<div class="sday">${escapeHTML(d)}</div>`;
+    }
+    html += `<button class="srow" type="button" data-id="${escapeHTML(x.id)}"><span class="sicon"><i class="i-doc-text"></i></span><span class="stitle${
+      x.title ? '' : ' untitled'
+    }">${escapeHTML(x.title || UNTITLED)}</span><span class="sdur">${escapeHTML(
+      durationLabel(x.seconds),
+    )}</span><time>${escapeHTML(timeLabel(x.startedAt))}</time></button>`;
+  }
+  el.sessions.innerHTML = html;
+};
+
+/** One recording: its title, when and how long, and everything said. */
+const renderSession = (x: Session | null) => {
+  if (view.drawnSession === x) return;
+  view.drawnSession = x;
+  if (!x) {
+    el.sessionview.innerHTML = '';
     return;
-  view.transcript = {
-    lines: s.lines,
-    partialMe: s.partialMe,
-    partialThem: s.partialThem,
-    isListening: s.isListening,
-  };
-  let html = '<div class="thead"><span class="label">TRANSCRIPT</span><span class="spacer"></span>';
-  if (s.lines.length > 0) {
-    html += '<button class="tcopy" id="tcopy" type="button"><i class="i-copy"></i>Copy Transcript</button>';
   }
-  html += '</div>';
-  if (s.lines.length === 0 && !s.partialMe && !s.partialThem) {
-    html += `<div class="tempty">${
-      s.isListening ? "Listening… words show up here as they're recognized." : 'Nothing transcribed yet.'
-    }</div>`;
+  let html = `<h1 class="stitle-big">${escapeHTML(x.title || UNTITLED)}</h1><div class="chips"><span class="chip">${escapeHTML(
+    `${dayLabel(x.startedAt)} · ${timeLabel(x.startedAt)}`,
+  )}</span><span class="chip">${escapeHTML(durationLabel(x.seconds))}</span></div>`;
+  html +=
+    '<div class="transcript"><div class="thead"><span class="label">TRANSCRIPT</span><span class="spacer"></span>' +
+    '<button class="tcopy" id="scopy" type="button"><i class="i-copy"></i>Copy Transcript</button></div>';
+  for (const l of x.lines) html += transcriptRow(clock(l.offset), l.speaker, l.text, true);
+  el.sessionview.innerHTML = `${html}</div>`;
+};
+
+const renderPage = (s: CopilotState) => {
+  el.stack.hidden = s.page !== 'chat';
+  el.sessions.hidden = s.page !== 'sessions';
+  el.sessionview.hidden = s.page !== 'session';
+  if (s.page === 'sessions') renderSessions(s.sessions);
+  renderSession(s.page === 'session' ? s.session : null);
+  if (s.page !== view.page) {
+    view.page = s.page;
+    el.scroll.scrollTop = 0;
   }
-  for (const l of s.lines) html += transcriptRow(clock(l.offset), l.speaker, l.text, true);
-  if (s.partialThem) html += transcriptRow('', 'them', s.partialThem, false);
-  if (s.partialMe) html += transcriptRow('', 'me', s.partialMe, false);
-  el.transcript.innerHTML = html;
-  document
-    .getElementById('tcopy')
-    ?.addEventListener('click', () => send({ _tag: 'Copy', text: transcriptText(s.lines) }));
 };
 
 const renderCard = (s: CopilotState) => {
@@ -274,10 +304,9 @@ const renderCard = (s: CopilotState) => {
   el.status.textContent = s.status;
   el.error.hidden = s.errorText == null;
   el.error.textContent = s.errorText ?? '';
-  renderTranscript(s);
-  el.tbtn.hidden = !(s.lines.length > 0 && !s.isListening);
-  el.tbtn.classList.toggle('on', s.showTranscript);
-  el.newchat.hidden = s.exchanges.length === 0;
+  renderPage(s);
+  el.tbtn.hidden = s.page !== 'chat';
+  el.newchat.hidden = s.page !== 'chat' || s.exchanges.length === 0;
   // Scroll to the end when an exchange is added or thinking starts or stops.
   if (last?.id !== view.lastExchange || s.isThinking !== view.lastThinking) {
     view.lastExchange = last?.id;
@@ -324,7 +353,6 @@ const bindInput = Effect.sync(() => {
       askFromInput();
     }
   });
-  el.go.addEventListener('click', askFromInput);
   el.back.addEventListener('click', () => send({ _tag: 'Collapse' }));
   el.follow.addEventListener('click', () => send({ _tag: 'ToggleFollow' }));
   ghost();
@@ -332,7 +360,16 @@ const bindInput = Effect.sync(() => {
   el.stop.addEventListener('click', () => send({ _tag: 'ToggleListening' }));
   el.signin.addEventListener('click', () => send({ _tag: 'Login' }));
   el.newchat.addEventListener('click', () => send({ _tag: 'Reset' }));
-  el.tbtn.addEventListener('click', () => send({ _tag: 'ToggleTranscript' }));
+  el.tbtn.addEventListener('click', () => send({ _tag: 'ShowSessions' }));
+  el.sessions.addEventListener('click', (event) => {
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>('.srow') : null;
+    if (row?.dataset.id) send({ _tag: 'OpenSession', id: row.dataset.id });
+  });
+  el.sessionview.addEventListener('click', (event) => {
+    const lines = view.state?.session?.lines;
+    if (lines && event.target instanceof Element && event.target.closest('#scopy'))
+      send({ _tag: 'Copy', text: transcriptText(lines) });
+  });
   el.bots.addEventListener('click', () => {
     const r = el.bots.getBoundingClientRect();
     send({ _tag: 'BotsMenu', x: r.left, y: r.bottom + 4 });
@@ -426,7 +463,6 @@ const bindInput = Effect.sync(() => {
 /** The shortcuts on the buttons, as they are in Settings. */
 const renderKeys = (k: CopilotKeys) =>
   Effect.sync(() => {
-    el.go.textContent = k.ask === '' ? 'Ask' : [...k.ask].join(' ');
     const withKeys = (text: string, keys: string) => (keys === '' ? text : `${text} (${keys})`);
     el.record.title = withKeys('Record', k.listen);
     el.stop.title = withKeys('Stop recording', k.listen);
@@ -440,13 +476,15 @@ const renderKeys = (k: CopilotKeys) =>
     );
   });
 
-/** Puts the transcript back on the updates that come without it. Here, where every update passes: the stream after it
- * keeps only the latest. */
+/** Puts the transcripts back on the updates that come without them. Here, where every update passes: the stream
+ * after it keeps only the latest. */
 const onState = (listener: (state: CopilotState) => void) => {
   let lines: ReadonlyArray<TranscriptLine> = [];
+  let session: Session | null = null;
   return bridge.onState((update) => {
     lines = update.lines ?? lines;
-    listener({ ...update, lines });
+    session = update.session === undefined ? session : update.session;
+    listener({ ...update, lines, session });
   });
 };
 
